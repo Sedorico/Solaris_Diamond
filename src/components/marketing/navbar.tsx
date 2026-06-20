@@ -107,7 +107,7 @@ export function Navbar() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="hidden items-center gap-2 rounded-full pl-1 pr-1 outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring sm:flex"
+                  className="flex items-center gap-2 rounded-full pl-1 pr-1 outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label="Account menu"
                 >
                   <Avatar className="size-8">
