@@ -1,0 +1,363 @@
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+/* ============================================================ */
+/*  SOLARIS DIAMOND — "Quiet Luxury Editorial"                  */
+/*  Ivory canvas · warm ink · a single orange brushstroke       */
+/*  Playfair Display (display) · Inter (body) · mono (labels)   */
+/* ============================================================ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: oklch(0.974 0.006 84);
+  --foreground: oklch(0.19 0.012 60);
+  --card: oklch(0.992 0.004 84);
+  --card-foreground: oklch(0.19 0.012 60);
+  --popover: oklch(0.992 0.004 84);
+  --popover-foreground: oklch(0.19 0.012 60);
+
+  --primary: oklch(0.21 0.014 55);
+  --primary-foreground: oklch(0.975 0.006 84);
+
+  --secondary: oklch(0.95 0.006 84);
+  --secondary-foreground: oklch(0.26 0.012 55);
+
+  --muted: oklch(0.95 0.006 84);
+  --muted-foreground: oklch(0.5 0.012 65);
+
+  --accent: oklch(0.64 0.16 48);
+  --accent-foreground: oklch(0.985 0.006 84);
+  --accent-soft: oklch(0.93 0.04 70);
+
+  --destructive: oklch(0.55 0.19 27);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.56 0.09 150);
+  --warning: oklch(0.66 0.1 70);
+
+  --border: oklch(0.885 0.008 78);
+  --input: oklch(0.88 0.008 78);
+  --ring: oklch(0.64 0.16 48);
+
+  --radius: 0.5rem;
+
+  --glass-bg: oklch(0.974 0.006 84 / 0.72);
+  --glass-border: oklch(0.19 0.012 60 / 0.08);
+  --glass-shadow: 0 1px 0 oklch(1 0 0 / 0.6), 0 20px 50px -28px oklch(0.19 0.012 60 / 0.3);
+}
+
+.dark {
+  --background: oklch(0.165 0.008 60);
+  --foreground: oklch(0.95 0.006 84);
+  --card: oklch(0.2 0.008 60);
+  --card-foreground: oklch(0.95 0.006 84);
+  --popover: oklch(0.2 0.008 60);
+  --popover-foreground: oklch(0.95 0.006 84);
+
+  --primary: oklch(0.95 0.006 84);
+  --primary-foreground: oklch(0.18 0.01 55);
+
+  --secondary: oklch(0.25 0.008 60);
+  --secondary-foreground: oklch(0.95 0.006 84);
+
+  --muted: oklch(0.25 0.008 60);
+  --muted-foreground: oklch(0.66 0.01 70);
+
+  --accent: oklch(0.7 0.16 52);
+  --accent-foreground: oklch(0.16 0.01 55);
+  --accent-soft: oklch(0.3 0.07 55);
+
+  --destructive: oklch(0.62 0.2 27);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.66 0.1 150);
+  --warning: oklch(0.74 0.12 70);
+
+  --border: oklch(0.95 0.006 84 / 0.1);
+  --input: oklch(0.95 0.006 84 / 0.14);
+  --ring: oklch(0.7 0.16 52);
+
+  --glass-bg: oklch(0.2 0.008 60 / 0.68);
+  --glass-border: oklch(0.95 0.006 84 / 0.08);
+  --glass-shadow: 0 20px 50px -28px oklch(0 0 0 / 0.6);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-display: var(--font-playfair), ui-serif, Georgia, serif;
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 8px);
+  --radius-2xl: calc(var(--radius) + 14px);
+
+  --shadow-glass: var(--glass-shadow);
+  --shadow-premium: 0 1px 1px oklch(0.19 0.012 60 / 0.04),
+    0 24px 60px -30px oklch(0.19 0.012 60 / 0.25);
+  --shadow-glow: 0 0 0 1px oklch(0.64 0.16 48 / 0.2),
+    0 20px 60px -22px oklch(0.64 0.16 48 / 0.35);
+
+  --animate-marquee: marquee 34s linear infinite;
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+@keyframes flow {
+  to { stroke-dashoffset: -1000; }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    letter-spacing: -0.01em;
+  }
+
+  @media (pointer: fine) {
+    html { cursor: url("/cursors/arrow-light.svg") 5 3, auto; }
+    html.dark { cursor: url("/cursors/arrow-dark.svg") 5 3, auto; }
+
+    a, button, [role="button"], label, summary, select,
+    input[type="button"], input[type="submit"], input[type="checkbox"],
+    input[type="radio"], input[type="range"], [data-slot] {
+      cursor: url("/cursors/arrow-light.svg") 5 3, auto;
+    }
+    .dark a, .dark button, .dark [role="button"], .dark label, .dark summary,
+    .dark select, .dark input[type="button"], .dark input[type="submit"],
+    .dark input[type="checkbox"], .dark input[type="radio"],
+    .dark input[type="range"], .dark [data-slot] {
+      cursor: url("/cursors/arrow-dark.svg") 5 3, auto;
+    }
+  }
+
+  ::selection {
+    background: oklch(0.64 0.16 48 / 0.22);
+    color: var(--color-foreground);
+  }
+  h1, h2, h3, h4 { letter-spacing: -0.02em; }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+  *::-webkit-scrollbar { width: 7px; height: 7px; }
+  *::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 9999px; }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    font-size: 0.6875rem;
+    color: var(--color-muted-foreground);
+  }
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(18px) saturate(180%);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    border: 1px solid var(--glass-border);
+  }
+  .glass-strong {
+    background: var(--glass-bg);
+    backdrop-filter: blur(30px) saturate(200%);
+    -webkit-backdrop-filter: blur(30px) saturate(200%);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+  }
+
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
+
+  .text-gradient-accent {
+    background: linear-gradient(110deg, oklch(0.7 0.15 58), oklch(0.58 0.18 38));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .rule {
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--color-border) 12%, var(--color-border) 88%, transparent);
+  }
+
+  .shimmer {
+    background: linear-gradient(110deg, transparent 30%,
+      color-mix(in oklch, var(--color-foreground) 7%, transparent) 50%, transparent 70%);
+    background-size: 200% 100%;
+    animation: shimmer 2.2s linear infinite;
+  }
+
+  .shadow-premium { box-shadow: var(--shadow-premium); }
+  .glow-ring { box-shadow: var(--shadow-glow); }
+
+  .mask-fade-x {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
+  }
+  .animate-float { animation: float 7s ease-in-out infinite; }
+
+  /* ── Auth card cursor-glow ── */
+  .auth-glow-card {
+    --glow-x: 50%;
+    --glow-y: 50%;
+    isolation: isolate;
+  }
+  .auth-glow-orb {
+    width: 520px;
+    height: 520px;
+    background: radial-gradient(circle, oklch(0.64 0.16 48 / 0.13), transparent 65%);
+    border-radius: 9999px;
+    position: absolute;
+    left: var(--glow-x);
+    top: var(--glow-y);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    z-index: 0;
+  }
+  .auth-glow-card:hover .auth-glow-orb {
+    opacity: 1;
+  }
+}
+
+/* ============================================================ */
+/*  POS SCOPED BRANDING THEME                                   */
+/*  Applies only inside .pos-scope — dashboard shell untouched  */
+/* ============================================================ */
+
+.pos-scope {
+  --pos-bg: oklch(0.992 0.004 84);
+  --pos-card-bg: oklch(1 0 0);
+  --pos-border-color: oklch(0.885 0.008 78);
+  --pos-text-color: oklch(0.19 0.012 60);
+  --pos-text-muted-color: oklch(0.5 0.012 65);
+  --pos-input-bg: oklch(0.97 0.004 84);
+  --pos-row-hover-bg: oklch(0.96 0.006 84);
+  /* Default primary/secondary — overridden by inline brandingVars from the component */
+  --pos-primary: oklch(0.64 0.16 48);
+  --pos-secondary: oklch(0.93 0.04 70);
+
+  background: var(--pos-bg);
+}
+
+.pos-scope.pos-scope-dark {
+  --pos-bg: oklch(0.165 0.008 60);
+  --pos-card-bg: oklch(0.2 0.008 60);
+  --pos-border-color: oklch(0.95 0.006 84 / 0.1);
+  --pos-text-color: oklch(0.95 0.006 84);
+  --pos-text-muted-color: oklch(0.66 0.01 70);
+  --pos-input-bg: oklch(0.95 0.006 84 / 0.06);
+  --pos-row-hover-bg: oklch(0.95 0.006 84 / 0.04);
+
+  background: var(--pos-bg);
+}
+
+.pos-scope .pos-card {
+  background: var(--pos-card-bg);
+  color: var(--pos-text-color);
+}
+
+.pos-scope .pos-border {
+  border-color: var(--pos-border-color);
+}
+
+.pos-scope .pos-text {
+  color: var(--pos-text-color);
+}
+
+.pos-scope .pos-text-muted {
+  color: var(--pos-text-muted-color);
+}
+
+.pos-scope .pos-accent-text {
+  color: var(--pos-primary);
+}
+
+.pos-scope .pos-input {
+  background: var(--pos-input-bg);
+  border-color: var(--pos-border-color);
+  color: var(--pos-text-color);
+}
+
+.pos-scope .pos-input::placeholder {
+  color: var(--pos-text-muted-color);
+}
+
+.pos-scope .pos-row-hover:hover {
+  background: var(--pos-row-hover-bg);
+}
+
+.pos-scope .pos-pill-active {
+  background: var(--pos-primary);
+  border-color: var(--pos-primary);
+  color: oklch(1 0 0);
+}
+
+.pos-scope .pos-charge-button {
+  background: var(--pos-primary);
+  color: oklch(1 0 0);
+  border: none;
+}
+
+.pos-scope .pos-charge-button:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--pos-primary) 85%, black);
+}
+
+.pos-scope .pos-charge-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

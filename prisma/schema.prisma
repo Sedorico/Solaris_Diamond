@@ -1,0 +1,822 @@
+// Solaris Diamond — multi-tenant PostgreSQL schema.
+//
+// Tenant isolation: every customer-owned row carries a `tenantId`. Application
+// queries always filter by the authenticated user's tenant, and Postgres
+// Row-Level Security policies (applied in a migration) enforce isolation at the
+// database layer so no tenant can ever read another tenant's data.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  STAFF
+  SUPERADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum ServiceKey {
+  inventory
+  sales
+  expenses
+  pos
+  attendance
+}
+
+enum BundleKey {
+  starter
+  growth
+  business
+}
+
+enum PlanInterval {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum NotificationType {
+  EXPIRY_WARNING
+  SYSTEM_ANNOUNCEMENT
+  MAINTENANCE
+  PROMOTIONAL
+  SUBSCRIPTION_ACTIVATED
+  SUBSCRIPTION_EXPIRED
+  PAYMENT_RECEIVED
+  WELCOME
+}
+
+// ---------------------------------------------------------------------------
+// Pricing — admin-editable price overrides
+// ---------------------------------------------------------------------------
+
+enum PricingKind {
+  SERVICE
+  BUNDLE
+}
+
+model ServicePricing {
+  id              String      @id @default(cuid())
+  /// Identifier — ServiceId (e.g. "inventory") or BundleId (e.g. "starter").
+  key             String      @unique
+  kind            PricingKind
+  /// Authoritative monthly price in centavos (PHP). Quarterly/yearly are derived.
+  monthlyCents    Int
+  /// Optional flat override of the displayed name; null falls back to data file.
+  displayName     String?
+  /// Last admin who changed it, for audit display in /admin/pricing.
+  updatedByUserId String?
+  updatedAt       DateTime    @updatedAt
+  createdAt       DateTime    @default(now())
+
+  @@index([kind])
+}
+
+// ---------------------------------------------------------------------------
+// Tenancy & identity
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id           String   @id @default(cuid())
+  name         String
+  businessName String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users                 User[]
+  subscriptions         Subscription[]
+  payments              Payment[]
+  invoices              Invoice[]
+  notifications         Notification[]
+  products              Product[]
+  productCategories     ProductCategory[]
+  inventoryTransactions InventoryTransaction[]
+  stockLedger           StockLedgerEntry[]
+  auditLogs             AuditLog[]
+  expenses              Expense[]
+  expenseCategories     ExpenseCategory[]
+  expenseReports        ExpenseReport[]
+  sales                 Sale[]
+  salesSnapshots        SalesSnapshot[]
+  salesReports          SalesReport[]
+  posProducts           POSProduct[]
+  posCategories         POSCategory[]
+  posTransactions       POSTransaction[]
+  posSettings           POSSettings?
+  posReports            POSReport[]
+  attendance            AttendanceLog[]
+  loginEvents           LoginEvent[]
+  devices               Device[]
+
+  @@index([createdAt])
+}
+
+model User {
+  id            String     @id @default(cuid())
+  tenantId      String
+  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  authId        String?    @unique
+  fullName      String
+  email         String     @unique
+  role          Role       @default(OWNER)
+  status        UserStatus @default(ACTIVE)
+  emailVerified Boolean    @default(false)
+  suspendedAt   DateTime?
+  lastLoginAt   DateTime?
+  createdAt     DateTime   @default(now())
+
+  loginEvents           LoginEvent[]
+  devices               Device[]
+  inventoryTransactions InventoryTransaction[]
+  auditLogs             AuditLog[]
+  notifications         Notification[]
+
+  @@index([tenantId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Subscriptions & billing
+// ---------------------------------------------------------------------------
+
+model Subscription {
+  id               String             @id @default(cuid())
+  tenantId         String
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  service          ServiceKey?
+  bundle           BundleKey?
+  planInterval     PlanInterval       @default(MONTHLY)
+  status           SubscriptionStatus @default(TRIALING)
+  priceCents       Int
+  startDate        DateTime           @default(now())
+  endDate          DateTime
+  trialEndsAt      DateTime?
+  renewsAt         DateTime?
+  canceledAt       DateTime?
+  paymentReference String?
+  createdAt        DateTime           @default(now())
+
+  payments   Payment[]
+  invoices   Invoice[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, endDate])
+  @@index([status, endDate])
+}
+
+model Payment {
+  id               String        @id @default(cuid())
+  tenantId         String
+  tenant           Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscriptionId   String?
+  subscription     Subscription? @relation(fields: [subscriptionId], references: [id])
+  amountCents      Int
+  currency         String        @default("PHP")
+  method           String
+  status           PaymentStatus @default(PENDING)
+  paymongoIntentId String?
+  createdAt        DateTime      @default(now())
+
+  invoice          Invoice?
+
+  @@index([tenantId, status])
+  @@index([paymongoIntentId])
+  @@index([tenantId, createdAt])
+}
+
+model Invoice {
+  id             String    @id @default(cuid())
+  tenantId       String
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  paymentId      String    @unique
+  payment        Payment   @relation(fields: [paymentId], references: [id])
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  invoiceNumber  String    @unique
+  issuedAt       DateTime  @default(now())
+  dueAt          DateTime?
+  paidAt         DateTime?
+  items          Json
+  subtotalCents  Int
+  taxCents       Int       @default(0)
+  totalCents     Int
+  createdAt      DateTime  @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([invoiceNumber])
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id        String           @id @default(cuid())
+  tenantId  String
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  readAt    DateTime?
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, read, createdAt])
+  @@index([tenantId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Inventory — ERPNext-inspired, multi-tenant
+//
+// Core pattern: every change to on-hand quantity creates an immutable
+// `StockLedgerEntry` (cf. ERPNext's Stock Ledger Entry). The `Product.onHand`
+// field is a cached aggregate of those entries kept current inside the same
+// Prisma transaction as the entry itself. This gives us:
+//   • point-in-time inventory reports (sum SLEs up to a timestamp),
+//   • a tamper-evident movement history,
+//   • clean reversal semantics (delete the SLE + recompute), and
+//   • a separate `AuditLog` for non-stock CRUD that doesn't pollute the ledger.
+// ---------------------------------------------------------------------------
+
+enum ProductStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum TransactionType {
+  STOCK_IN     // receipt / purchase / opening
+  STOCK_OUT    // sale / consumption / damage
+  ADJUSTMENT   // cycle-count correction (can be +/-)
+}
+
+enum AuditAction {
+  PRODUCT_CREATED
+  PRODUCT_UPDATED
+  PRODUCT_ARCHIVED
+  PRODUCT_RESTORED
+  PRODUCT_DELETED
+  CATEGORY_CREATED
+  CATEGORY_UPDATED
+  CATEGORY_DELETED
+  STOCK_IN
+  STOCK_OUT
+  STOCK_ADJUSTMENT
+  EXPENSE_CREATED
+  EXPENSE_UPDATED
+  EXPENSE_DELETED
+  EXPENSE_RESTORED
+  EXPENSE_CATEGORY_CREATED
+  EXPENSE_CATEGORY_UPDATED
+  EXPENSE_CATEGORY_DELETED
+  POS_PRODUCT_CREATED
+  POS_PRODUCT_UPDATED
+  POS_PRODUCT_DELETED
+  POS_CATEGORY_CREATED
+  POS_CATEGORY_UPDATED
+  POS_CATEGORY_DELETED
+  POS_TRANSACTION_CREATED
+  POS_TRANSACTION_VOIDED
+  POS_TRANSACTION_REPRINTED
+  POS_SETTINGS_UPDATED
+  POS_PIN_CHANGED
+  POS_PIN_VERIFIED
+  POS_PIN_FAILED
+  USER_SUSPENDED
+  USER_REACTIVATED
+  USER_DELETED
+  SUBSCRIPTION_CREATED
+  SUBSCRIPTION_CANCELED
+  SUBSCRIPTION_RENEWED
+  SUBSCRIPTION_EXPIRED
+}
+
+model ProductCategory {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  slug        String
+  description String?
+  color       String?  // optional accent for badges
+  parentId    String?
+  parent      ProductCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    ProductCategory[] @relation("CategoryHierarchy")
+  products    Product[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+}
+
+model Product {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Identity
+  sku           String
+  name          String
+  description   String?
+  imageUrl      String?
+  unitOfMeasure String   @default("pc")
+
+  // Categorisation
+  categoryId    String?
+  category      ProductCategory? @relation(fields: [categoryId], references: [id])
+
+  // Inventory settings
+  onHand        Int      @default(0)  // cached aggregate of StockLedgerEntry
+  reorderPoint  Int      @default(10) // alert threshold
+  reorderQty    Int      @default(20) // suggested PO qty
+  costCents     Int      @default(0)  // unit cost (valuation)
+  priceCents    Int      @default(0)  // unit sell price
+
+  // Lifecycle
+  status        ProductStatus @default(ACTIVE)
+  archivedAt    DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  saleItems     SaleItem[]
+  transactions  InventoryTransaction[]
+  ledger        StockLedgerEntry[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId, status])
+  @@index([tenantId, categoryId])
+}
+
+model InventoryTransaction {
+  id            String          @id @default(cuid())
+  tenantId      String
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  userId        String?
+  user          User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  type          TransactionType
+  quantity      Int             // absolute magnitude (always positive)
+  signedQty     Int             // applied sign (+ for IN/+adj, − for OUT/−adj)
+
+  reason        String?         // free-text justification
+  reference     String?         // PO/SO/invoice/sale ref
+  notes         String?
+
+  unitCostCents Int             @default(0)
+  totalCostCents Int            @default(0)
+
+  occurredAt    DateTime        @default(now())
+  createdAt     DateTime        @default(now())
+
+  ledgerEntry   StockLedgerEntry?
+
+  @@index([tenantId, occurredAt])
+  @@index([tenantId, productId, occurredAt])
+  @@index([tenantId, type])
+}
+
+model StockLedgerEntry {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  transactionId   String   @unique
+  transaction     InventoryTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  qtyChange       Int      // signed
+  balanceAfter    Int      // cumulative on-hand after this entry
+  valueChangeCents Int     // (qtyChange * unitCost)
+
+  postedAt        DateTime @default(now())
+
+  @@index([tenantId, productId, postedAt])
+  @@index([tenantId, postedAt])
+}
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  tenantId    String
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  action      AuditAction
+  entityType  String      // "product" | "category" | "transaction" | "user" | "subscription"
+  entityId    String
+  entityLabel String?     // human-readable for timelines
+
+  diff        Json?       // { before: {...}, after: {...} } for updates
+  metadata    Json?       // extra context (qty change, reason, etc.)
+
+  createdAt   DateTime    @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entityType, entityId])
+  @@index([tenantId, action])
+}
+
+// ---------------------------------------------------------------------------
+// Expense Tracking — Firefly III-inspired, fully STANDALONE module
+//
+// This module has zero FKs to Inventory, Sales or POS. A tenant can subscribe
+// to Expense Tracking on its own and still get full functionality. The shape
+// mirrors Firefly III's withdrawal/category model:
+//
+//   • Expense           — the canonical transaction document (title, amount,
+//                         date, optional vendor, description, notes, FK to a
+//                         tenant-owned category).
+//   • ExpenseCategory   — tenant-owned taxonomy. Defaults are seeded but can
+//                         be augmented or deleted by the subscriber.
+//   • ExpenseReport     — audit row written whenever a report is generated
+//                         or an export (CSV/XLSX/PDF) is downloaded.
+//
+// Hard-delete is replaced with soft-delete (`deletedAt`) so audit reports
+// stay complete; a separate purge job can hard-prune older soft-deletes.
+// ---------------------------------------------------------------------------
+
+enum ExpenseReportKind {
+  DASHBOARD_VIEW
+  KPI_QUERY
+  TREND_QUERY
+  CATEGORY_QUERY
+  EXPORT_CSV
+  EXPORT_XLSX
+  EXPORT_PDF
+}
+
+model ExpenseCategory {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  slug        String
+  description String?
+  color       String?  // accent colour for chips / breakdown bars
+  isDefault   Boolean  @default(false)  // seeded defaults flag
+  archivedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  expenses    Expense[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+}
+
+model Expense {
+  id            String           @id @default(cuid())
+  tenantId      String
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  title         String
+  amountCents   Int
+  vendor        String?
+  description   String?
+  notes         String?
+
+  categoryId    String?
+  category      ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  spentAt       DateTime         @default(now())
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  deletedAt     DateTime?        // soft delete — preserve audit trail
+
+  createdById   String?
+  updatedById   String?
+
+  @@index([tenantId, spentAt])
+  @@index([tenantId, categoryId])
+  @@index([tenantId, deletedAt])
+}
+
+model ExpenseReport {
+  id           String            @id @default(cuid())
+  tenantId     String
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId       String?
+  kind         ExpenseReportKind
+  rangeFrom    DateTime?
+  rangeTo      DateTime?
+  filters      Json?
+  rowCount     Int?
+  totalCents   Int?
+  exportedFile String?
+  createdAt    DateTime          @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, kind])
+}
+
+// ---------------------------------------------------------------------------
+// Sales & analytics — Metabase-inspired dashboard architecture
+// ---------------------------------------------------------------------------
+
+enum SaleStatus {
+  COMPLETED
+  REFUNDED
+  VOIDED
+}
+
+enum SaleChannel {
+  POS
+  ONLINE
+  MANUAL
+  OTHER
+}
+
+enum SalesReportKind {
+  DASHBOARD_VIEW
+  KPI_QUERY
+  TREND_QUERY
+  PRODUCT_QUERY
+  EXPORT_CSV
+  EXPORT_XLSX
+}
+
+model Sale {
+  id           String      @id @default(cuid())
+  tenantId     String
+  tenant       Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ref          String
+  totalCents   Int
+  costCents    Int         @default(0)
+  method       String
+  channel      SaleChannel @default(POS)
+  status       SaleStatus  @default(COMPLETED)
+  customer     String?
+  notes        String?
+  soldAt       DateTime    @default(now())
+  refundedAt   DateTime?
+  items        SaleItem[]
+
+  @@index([tenantId, soldAt])
+  @@index([tenantId, status, soldAt])
+}
+
+model SaleItem {
+  id           String   @id @default(cuid())
+  saleId       String
+  sale         Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId    String?
+  product      Product? @relation(fields: [productId], references: [id])
+  name         String
+  priceCents   Int
+  costCents    Int      @default(0)
+  qty          Int
+
+  @@index([saleId])
+  @@index([productId])
+}
+
+model SalesSnapshot {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  day           DateTime
+  revenueCents  Int      @default(0)
+  costCents     Int      @default(0)
+  orderCount    Int      @default(0)
+  itemCount     Int      @default(0)
+  refundCents   Int      @default(0)
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tenantId, day])
+  @@index([tenantId, day])
+}
+
+model SalesReport {
+  id           String          @id @default(cuid())
+  tenantId     String
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId       String?
+  kind         SalesReportKind
+  rangeFrom    DateTime?
+  rangeTo      DateTime?
+  filters      Json?
+  rowCount     Int?
+  exportedFile String?
+  createdAt    DateTime        @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, kind])
+}
+
+// ---------------------------------------------------------------------------
+// Point of Sale — POS module models
+// ---------------------------------------------------------------------------
+
+enum POSTransactionStatus {
+  COMPLETED
+  VOIDED
+  REFUNDED
+}
+
+model POSProduct {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  sku         String?
+  priceCents  Int
+  costCents   Int      @default(0)
+  imageUrl    String?
+  categoryId  String?
+  category    POSCategory? @relation(fields: [categoryId], references: [id])
+  available   Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transactionItems POSTransactionItem[]
+
+  @@index([tenantId, available])
+  @@index([tenantId, categoryId])
+}
+
+model POSCategory {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  slug      String
+  color     String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products  POSProduct[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+}
+
+model POSTransaction {
+  id          String               @id @default(cuid())
+  tenantId    String
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ref         String
+  totalCents  Int
+  method      String
+  status      POSTransactionStatus @default(COMPLETED)
+  customer    String?
+  notes       String?
+  cashier     String?
+  completedAt DateTime             @default(now())
+  voidedAt    DateTime?
+  createdAt   DateTime             @default(now())
+
+  items       POSTransactionItem[]
+
+  @@index([tenantId, completedAt])
+  @@index([tenantId, status])
+}
+
+model POSTransactionItem {
+  id            String         @id @default(cuid())
+  transactionId String
+  transaction   POSTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  productId     String?
+  product       POSProduct?    @relation(fields: [productId], references: [id])
+  name          String
+  priceCents    Int
+  qty           Int
+  discountCents Int            @default(0)
+
+  @@index([transactionId])
+}
+
+model POSSettings {
+  id             String  @id @default(cuid())
+  tenantId       String  @unique
+  tenant         Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyName    String?
+  headerMessage  String?
+  footerMessage  String?
+  vatRate        Float   @default(0.12)
+  vatInclusive   Boolean @default(true)
+  pinRequired    Boolean @default(false)
+  pinHash        String?
+  primaryColor   String  @default("#000000")
+  accentColor    String  @default("#666666")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+enum POSReportKind {
+  SHIFT_SUMMARY
+  DAILY_SALES
+  PRODUCT_MIX
+  EXPORT_CSV
+}
+
+model POSReport {
+  id           String        @id @default(cuid())
+  tenantId     String
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId       String?
+  kind         POSReportKind
+  rangeFrom    DateTime?
+  rangeTo      DateTime?
+  filters      Json?
+  rowCount     Int?
+  totalCents   Int?
+  exportedFile String?
+  createdAt    DateTime      @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Attendance
+// ---------------------------------------------------------------------------
+
+model AttendanceLog {
+  id       String    @id @default(cuid())
+  tenantId String
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee String
+  timeIn   DateTime
+  timeOut  DateTime?
+
+  @@index([tenantId, timeIn])
+}
+
+// ---------------------------------------------------------------------------
+// Security & audit
+// ---------------------------------------------------------------------------
+
+model LoginEvent {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ip        String?
+  userAgent String?
+  location  String?
+  success   Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+model Device {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fingerprint String
+  label       String?
+  trusted     Boolean  @default(false)
+  lastSeenAt  DateTime @default(now())
+
+  @@unique([userId, fingerprint])
+  @@index([tenantId])
+}
+
+model SystemLog {
+  id        String   @id @default(cuid())
+  level     String   @default("info")
+  scope     String
+  message   String
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([level, createdAt])
+}

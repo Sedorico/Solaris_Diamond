@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
+  <style>
+    .s { fill: #0E0C0A; }
+    @media (prefers-color-scheme: dark) { .s { fill: #F5F5F3; } }
+  </style>
+  <g stroke="#C98A3C" stroke-width="1.05" stroke-linecap="round">
+    <line x1="27.13" y1="12.68" x2="30.87" y2="11.47" />
+    <line x1="26.50" y1="11.25" x2="30.39" y2="9.00" />
+    <line x1="25.57" y1="9.98" x2="29.30" y2="6.63" />
+    <line x1="24.41" y1="8.93" x2="27.60" y2="4.54" />
+    <line x1="23.05" y1="8.15" x2="25.39" y2="2.90" />
+    <line x1="21.56" y1="7.67" x2="22.79" y2="1.86" />
+    <line x1="20.00" y1="7.50" x2="20.00" y2="1.50" />
+    <line x1="18.44" y1="7.67" x2="17.21" y2="1.86" />
+    <line x1="16.95" y1="8.15" x2="14.61" y2="2.90" />
+    <line x1="15.59" y1="8.93" x2="12.40" y2="4.54" />
+    <line x1="14.43" y1="9.98" x2="10.70" y2="6.63" />
+    <line x1="13.50" y1="11.25" x2="9.61" y2="9.00" />
+    <line x1="12.87" y1="12.68" x2="9.13" y2="11.47" />
+  </g>
+  <path d="M 14 17 A 6 6 0 0 1 26 17" stroke="#C98A3C" stroke-width="2" stroke-linecap="round" />
+  <text class="s" x="20" y="38" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="27" font-weight="500">S</text>
+</svg>

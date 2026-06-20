@@ -1,0 +1,5 @@
+Folder PATH listing
+Volume serial number is 00000064 585A:F11E
+C:\USERS\KARL\DOCUMENTS\SOLARIS\SOLARIS-DIAMOND\PRISMA
+No subfolders exist 
+

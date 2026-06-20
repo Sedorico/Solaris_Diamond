@@ -1,0 +1,57 @@
+Folder PATH listing
+Volume serial number is 000000CA 585A:F11E
+C:\USERS\KARL\DOCUMENTS\SOLARIS\SOLARIS-DIAMOND\SRC
++---app
+|   +---(auth)
+|   |   +---forgot-password
+|   |   +---login
+|   |   +---register
+|   |   +---reset-password
+|   |   \---verify
+|   +---(dashboard)
+|   |   \---dashboard
+|   |       +---attendance
+|   |       +---billing
+|   |       +---expenses
+|   |       +---inventory
+|   |       +---pos
+|   |       +---sales
+|   |       \---settings
+|   +---(marketing)
+|   |   +---about
+|   |   +---bundles
+|   |   +---contact
+|   |   +---pricing
+|   |   \---services
+|   |       \---[id]
+|   +---admin
+|   |   +---login
+|   |   +---logs
+|   |   +---payments
+|   |   +---revenue
+|   |   +---services
+|   |   +---subscriptions
+|   |   \---users
+|   +---api
+|   |   +---checkout
+|   |   \---webhooks
+|   |       \---paymongo
+|   \---checkout
++---components
+|   +---admin
+|   +---auth
+|   +---dashboard
+|   +---marketing
+|   +---motion
+|   +---providers
+|   +---three
+|   \---ui
+\---lib
+    +---auth
+    +---config
+    +---data
+    +---db
+    +---email
+    +---payments
+    +---store
+    \---supabase
