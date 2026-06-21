@@ -12,7 +12,7 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-const DATABASE_URL = process.env.DATABASE_URL;
+const DATABASE_URL = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
 const ADMIN_TENANT_ID = "tenant_admin";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@solarisdiamond.com";
 

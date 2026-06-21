@@ -12,6 +12,8 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: process.env.DATABASE_URL,
+    // Migrations / CLI use the direct (session-pooler) connection. The
+    // transaction pooler used at runtime can't run DDL or advisory locks.
+    url: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
   },
 });

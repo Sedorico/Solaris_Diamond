@@ -10,7 +10,8 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-const DATABASE_URL = process.env.DATABASE_URL;
+// Seed/migrations use the direct (session-pooler) connection.
+const DATABASE_URL = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@solarisdiamond.com";
 const ADMIN_NAME = process.env.ADMIN_NAME ?? "System Administrator";
