@@ -103,7 +103,11 @@ export function Navbar() {
 
         <div className="flex items-center gap-1.5">
           <ThemeToggle className="hidden border-0 hover:bg-secondary/60 sm:inline-flex" />
-          {!loading && user ? (
+          {loading ? (
+            // Neutral placeholder while the session resolves — avoids flashing
+            // "Login" for a split second before the avatar appears.
+            <div className="size-8 animate-pulse rounded-full bg-secondary/70" />
+          ) : user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button

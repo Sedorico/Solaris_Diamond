@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -16,12 +16,24 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAdminStore } from "@/lib/store/admin-store";
+import { useSession } from "@/lib/auth/hooks";
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const { user } = useSession();
+  const adminAuthed = useAdminStore((s) => s.authed);
+
+  // Already signed in as an admin? Skip the form and go straight to the console.
+  // Fixes being asked to log in again when entering via the logo backdoor.
+  useEffect(() => {
+    if (user?.role === "SUPERADMIN" || adminAuthed) {
+      router.replace("/admin");
+    }
+  }, [user, adminAuthed, router]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
