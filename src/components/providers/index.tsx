@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { useTheme } from "next-themes";
 import { ThemeProvider } from "./theme-provider";
 import { QueryProvider } from "./query-provider";
+import { SessionProvider } from "@/lib/auth/hooks";
 
 function AppToaster() {
   const { resolvedTheme } = useTheme();
@@ -47,8 +48,10 @@ export function Providers({ children }: { children: ReactNode }) {
       disableTransitionOnChange
     >
       <QueryProvider>
-        {children}
-        <AppToaster />
+        <SessionProvider>
+          {children}
+          <AppToaster />
+        </SessionProvider>
       </QueryProvider>
     </ThemeProvider>
   );

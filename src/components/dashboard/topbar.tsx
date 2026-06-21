@@ -54,7 +54,7 @@ export function Topbar() {
   }
 
   return (
-    <header className="glass-strong sticky top-0 z-30 flex h-15 items-center justify-between gap-3 border-b border-border px-4 sm:px-6">
+    <header className="sticky top-0 z-30 flex h-15 items-center justify-between gap-3 border-b border-foreground/10 bg-background/30 px-4 backdrop-blur-xl sm:px-6">
       <div className="flex items-center gap-3">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
@@ -72,9 +72,10 @@ export function Topbar() {
             <SidebarNav onNavigate={() => setMobileOpen(false)} />
           </SheetContent>
         </Sheet>
-        <h1 className="text-base font-semibold tracking-tight">
-          {current?.title ?? "Dashboard"}
-        </h1>
+        <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.32em] text-muted-foreground/75">
+          <span className="h-px w-6 bg-accent/50" />
+          <span>{current?.title ?? "Overview"}</span>
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
@@ -82,7 +83,7 @@ export function Topbar() {
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
             placeholder="Search…"
-            className="h-9 w-56 rounded-full border border-input bg-background/60 pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-9 w-56 rounded-full border border-foreground/10 bg-background/40 pl-9 pr-3 text-sm backdrop-blur focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
         <NotificationBell />

@@ -358,8 +358,14 @@ function PosModule() {
         {/* Header */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-semibold tracking-tight">{settings.branding.companyName} — POS</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.35em] text-muted-foreground/70">
+              <span className="h-px w-8 bg-accent/50" />
+              <span>Module</span>
+            </div>
+            <h2 className="font-display mt-3 text-3xl font-normal tracking-tight sm:text-4xl">
+              {settings.branding.companyName} — POS
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
               Today: {stats.todayTransactions} transactions · {formatCurrency(stats.todayRevenue)}
             </p>
           </div>

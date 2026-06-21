@@ -15,20 +15,23 @@ export function PageHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
-          Admin
-        </p>
-        <h1 className="mt-1.5 text-[28px] font-semibold leading-tight tracking-tight">
+        <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.35em] text-muted-foreground/70">
+          <span className="h-px w-8 bg-accent/50" />
+          <span>Admin Console</span>
+        </div>
+        <h1 className="font-display mt-3 text-3xl font-normal tracking-tight sm:text-4xl">
           {title}
         </h1>
         {description && (
-          <p className="mt-1.5 text-sm text-muted-foreground">{description}</p>
+          <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-[15px]">
+            {description}
+          </p>
         )}
       </div>
       {children && (
-        <div className="flex items-center gap-2">{children}</div>
+        <div className="flex flex-wrap items-center gap-2">{children}</div>
       )}
     </div>
   );
@@ -67,20 +70,18 @@ export function KpiCard({
         delay: index * 0.05,
         ease: [0.22, 1, 0.36, 1],
       }}
-      className="group relative overflow-hidden rounded-2xl border border-border bg-card p-5 transition-all hover:border-accent/30 hover:shadow-premium"
+      className="group relative overflow-hidden rounded-2xl border border-border bg-card p-6 transition-all hover:shadow-premium"
     >
-      <div className="flex items-start justify-between">
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      <div className="flex items-center justify-between">
+        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
           {label}
         </span>
         {Icon && (
-          <span className="flex size-8 items-center justify-center rounded-lg bg-secondary text-foreground/60 transition-colors group-hover:bg-accent-soft group-hover:text-accent">
-            <Icon className="size-4" />
-          </span>
+          <Icon className="size-4 text-muted-foreground/55 transition-colors group-hover:text-accent" />
         )}
       </div>
 
-      <p className="mt-4 text-3xl font-semibold leading-none tracking-tight">
+      <p className="font-display mt-5 text-4xl font-normal leading-none tracking-tight tabular">
         {display}
       </p>
 
@@ -130,7 +131,7 @@ export function SectionCard({
         <header className="mb-5 flex items-start justify-between gap-3">
           <div>
             {title && (
-              <h3 className="text-base font-semibold tracking-tight">
+              <h3 className="font-display text-lg font-normal tracking-tight">
                 {title}
               </h3>
             )}

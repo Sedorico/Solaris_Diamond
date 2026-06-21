@@ -13,9 +13,10 @@ import { MeshGradient } from "@paper-design/shaders-react";
  */
 
 // White × gold silk (light) / black × gold silk (dark). The base colour is
-// weighted (repeated) so white/black dominates and gold stays a rare accent.
-const LIGHT_COLORS = ["#ffffff", "#ffffff", "#f5efe2", "#e6d4ac", "#c89c38"];
-const DARK_COLORS = ["#000000", "#000000", "#0f0c08", "#241b0f", "#cda23f"];
+// weighted (repeated) so white/black dominates, with a smooth champagne→gold
+// ramp so the gold melts in instead of jumping (the "fake gradient" look).
+const LIGHT_COLORS = ["#ffffff", "#ffffff", "#f3ead8", "#dcbf85", "#c2912e"];
+const DARK_COLORS = ["#000000", "#000000", "#171009", "#3a2a12", "#caa03c"];
 
 export function MeshGradientScene() {
   const [dark, setDark] = useState(false);
@@ -35,11 +36,12 @@ export function MeshGradientScene() {
   return (
     <MeshGradient
       colors={dark ? DARK_COLORS : LIGHT_COLORS}
-      distortion={0.85}
-      swirl={0.6}
-      speed={0.3}
-      scale={1.25}
+      distortion={0.9}
+      swirl={0.65}
+      grainMixer={0.18}
       grainOverlay={0.04}
+      speed={0.28}
+      scale={1.3}
       style={{ width: "100%", height: "100%" }}
     />
   );

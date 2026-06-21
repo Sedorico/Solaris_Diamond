@@ -248,8 +248,14 @@ function SalesModule() {
       <div className="mb-8 flex flex-col gap-4">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="font-display text-3xl font-medium tracking-tight">Sales</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.35em] text-muted-foreground/70">
+              <span className="h-px w-8 bg-accent/50" />
+              <span>Module</span>
+            </div>
+            <h2 className="font-display mt-3 text-3xl font-normal tracking-tight sm:text-4xl">
+              Sales
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
               Revenue, orders and product performance —{" "}
               {RANGE_OPTIONS.find((o) => o.value === preset)?.label.toLowerCase()}.
             </p>

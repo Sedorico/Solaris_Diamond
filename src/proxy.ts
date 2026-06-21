@@ -49,9 +49,15 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch {
+    // Supabase unreachable — treat as unauthenticated instead of crashing the
+    // request. Protected routes fall through to the login redirect below.
+    user = null;
+  }
 
   if (isProtected && !user) {
     if (pathname === "/admin/login") return response;
@@ -72,7 +78,17 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
+  // Only run the auth middleware where it's actually needed — gating the
+  // protected areas and bouncing already-authed users off the auth pages.
+  // Marketing pages, API routes and assets skip it entirely, so they no longer
+  // pay a Supabase round-trip on every single request.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/dashboard/:path*",
+    "/admin/:path*",
+    "/login",
+    "/register",
+    "/verify",
+    "/forgot-password",
+    "/reset-password",
   ],
 };

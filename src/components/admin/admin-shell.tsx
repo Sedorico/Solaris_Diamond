@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu } from "lucide-react";
 import { AdminSidebar } from "@/components/admin/sidebar";
+import { PremiumBackdrop } from "@/components/checkout/premium-backdrop";
 import { DiamondMark } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -62,12 +63,18 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-neutral-100 dark:bg-neutral-950">
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 lg:block">
-        <AdminSidebar />
-      </aside>
+    <>
+      {/* Flowing gold wave-line backdrop behind the whole admin console */}
+      <div className="pointer-events-none fixed inset-0 -z-10">
+        <PremiumBackdrop />
+      </div>
+
+      <div className="glass-scope flex min-h-screen">
+        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 lg:block">
+          <AdminSidebar />
+        </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-15 items-center justify-between gap-3 border-b border-border bg-background/80 px-4 backdrop-blur-md sm:px-6">
+        <header className="sticky top-0 z-30 flex h-15 items-center justify-between gap-3 border-b border-foreground/10 bg-background/30 px-4 backdrop-blur-xl sm:px-6">
           <div className="flex items-center gap-3">
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
@@ -85,14 +92,16 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 <AdminSidebar onNavigate={() => setMobileOpen(false)} />
               </SheetContent>
             </Sheet>
-            <span className="text-sm font-medium text-muted-foreground">
-              Admin Console
-            </span>
+            <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.32em] text-muted-foreground/75">
+              <span className="h-px w-6 bg-accent/50" />
+              <span>Admin Console</span>
+            </div>
           </div>
           <ThemeToggle />
         </header>
         <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

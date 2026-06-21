@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useSession } from "@/lib/auth/hooks";
 import { notifyDevOtp, requestOtp } from "@/lib/auth/dev-otp";
 import { integrations } from "@/lib/env";
 
@@ -31,6 +32,7 @@ function LoginForm() {
   const params = useSearchParams();
   const redirect = params.get("redirect") ?? "/";
   const login = useAuthStore((s) => s.login);
+  const { refresh } = useSession();
 
   const {
     register,
@@ -51,8 +53,14 @@ function LoginForm() {
         toast.error("Sign in failed", { description: error.message });
         return;
       }
+      // Refresh the shared session BEFORE navigating so the guards + navbar see
+      // the new user immediately. Without this, the dashboard can briefly bounce
+      // back to /login (or the navbar still shows "Login") until the auth
+      // listener catches up — the intermittent bug.
+      await refresh();
       toast.success("Welcome back");
       router.push(redirect);
+      router.refresh();
       return;
     }
 

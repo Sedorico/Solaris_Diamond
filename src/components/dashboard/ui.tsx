@@ -15,14 +15,24 @@ export function ModuleHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
+        <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.35em] text-muted-foreground/70">
+          <span className="h-px w-8 bg-accent/50" />
+          <span>Module</span>
+        </div>
+        <h2 className="font-display mt-3 text-3xl font-normal tracking-tight sm:text-4xl">
+          {title}
+        </h2>
         {description && (
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-[15px]">
+            {description}
+          </p>
         )}
       </div>
-      {children && <div className="flex items-center gap-2">{children}</div>}
+      {children && (
+        <div className="flex flex-wrap items-center gap-2">{children}</div>
+      )}
     </div>
   );
 }
@@ -48,17 +58,17 @@ export function StatCard({
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, delay: index * 0.06, ease: [0.22, 1, 0.36, 1] }}
-      className="rounded-2xl border border-border bg-card p-5"
+      className="rounded-2xl border border-border bg-card p-6"
     >
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{label}</span>
-        {Icon && (
-          <span className="flex size-8 items-center justify-center rounded-lg bg-secondary text-foreground/70">
-            <Icon className="size-4" />
-          </span>
-        )}
+        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+          {label}
+        </span>
+        {Icon && <Icon className="size-4 text-muted-foreground/55" />}
       </div>
-      <p className="mt-3 text-2xl font-semibold tracking-tight">{value}</p>
+      <p className="font-display mt-5 text-4xl font-normal leading-none tracking-tight tabular">
+        {value}
+      </p>
       {(delta !== undefined || hint) && (
         <div className="mt-2 flex items-center gap-1.5 text-xs">
           {delta !== undefined && (

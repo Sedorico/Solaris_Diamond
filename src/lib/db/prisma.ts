@@ -19,9 +19,17 @@ export function getPrisma(): PrismaClient {
 
   // Supabase's pooler presents a certificate node-postgres won't verify by
   // default, so enable SSL without strict verification (matches `sslmode=require`).
+  //
+  // Supabase's session pooler caps TOTAL connections (pool_size 15). node-postgres
+  // defaults to 10 per pool, so local dev + each serverless instance can exhaust
+  // it. Keep each client's pool small and release idle connections quickly so the
+  // shared limit isn't hit.
   const adapter = new PrismaPg({
     connectionString: env.databaseUrl,
     ssl: { rejectUnauthorized: false },
+    max: 3,
+    idleTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 10_000,
   });
   const client = new PrismaClient({
     adapter,

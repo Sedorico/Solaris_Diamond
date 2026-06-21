@@ -123,7 +123,7 @@ export function Footer() {
         {/* Base dim layer */}
         <span
           aria-hidden
-          className="font-display block w-full pointer-events-none select-none whitespace-nowrap text-center text-[11vw] font-medium leading-none tracking-tight text-foreground/[0.05]"
+          className="font-display block w-full pointer-events-none select-none whitespace-nowrap text-center text-[10.3vw] font-medium leading-none tracking-tight text-foreground/[0.05]"
         >
           SOLARIS DIAMOND
         </span>
@@ -133,7 +133,7 @@ export function Footer() {
           ref={textRef}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
-          className="font-display pointer-events-auto absolute bottom-0 left-0 right-0 block select-none whitespace-nowrap text-center text-[11vw] font-medium leading-none tracking-tight"
+          className="font-display pointer-events-auto absolute bottom-0 left-0 right-0 block select-none whitespace-nowrap text-center text-[10.3vw] font-medium leading-none tracking-tight"
           style={{
             color: "transparent",
             backgroundImage:

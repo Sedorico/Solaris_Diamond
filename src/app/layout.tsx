@@ -1,14 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Geist_Mono, Playfair_Display } from "next/font/google";
+import { Geist, Geist_Mono, Fraunces } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { siteConfig } from "@/lib/config/site";
 
-// Clean, premium body/UI sans (ui-ux-pro-max luxury pairing).
-const inter = Inter({
+// Clean, premium body/UI sans. Feeds --font-sans (variable name kept as
+// --font-inter so existing references pick it up automatically).
+const geistSans = Geist({
   variable: "--font-inter",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
   display: "swap",
 });
 
@@ -18,8 +18,10 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
-// Elegant high-contrast serif for classy, editorial display headlines.
-const playfair = Playfair_Display({
+// Premium editorial serif for classy display headlines. Feeds --font-display
+// (the variable name stays --font-playfair so every existing reference picks it
+// up automatically).
+const fraunces = Fraunces({
   variable: "--font-playfair",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -75,7 +77,7 @@ export default function RootLayout({
       lang="en"
       suppressHydrationWarning
       data-scroll-behavior="smooth"
-      className={`${inter.variable} ${geistMono.variable} ${playfair.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-background text-foreground">
         <Providers>{children}</Providers>

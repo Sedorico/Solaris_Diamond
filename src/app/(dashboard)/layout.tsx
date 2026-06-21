@@ -1,6 +1,7 @@
 import { DashboardGuard } from "@/components/dashboard/guard";
 import { SidebarNav } from "@/components/dashboard/sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
+import { PremiumBackdrop } from "@/components/checkout/premium-backdrop";
 
 export default function DashboardLayout({
   children,
@@ -9,8 +10,13 @@ export default function DashboardLayout({
 }) {
   return (
     <DashboardGuard>
-      <div className="flex min-h-screen bg-secondary/30">
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-border bg-background lg:block">
+      {/* Flowing gold wave-line backdrop behind the whole dashboard */}
+      <div className="pointer-events-none fixed inset-0 -z-10">
+        <PremiumBackdrop />
+      </div>
+
+      <div className="glass-scope relative flex min-h-screen">
+        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 lg:block">
           <SidebarNav />
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
