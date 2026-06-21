@@ -8,6 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { SessionUser } from "@/lib/auth/session";
 import type { ServiceId } from "@/lib/data/services";
@@ -15,30 +16,56 @@ import type { ServiceId } from "@/lib/data/services";
 interface UseSessionReturn {
   user: SessionUser | null;
   subscribedServices: ServiceId[];
+  /** True only until the auth state is first KNOWN — resolved instantly from
+   *  the local Supabase session, so the UI never hangs on "is this user logged
+   *  in?". */
   loading: boolean;
+  /** True once the full, DB-backed session (authoritative role + subscriptions)
+   *  has loaded. Gate role-sensitive screens (admin) on this, not `loading`. */
+  enriched: boolean;
   error: string | null;
   refresh: () => Promise<void>;
 }
 
 /**
- * Session is fetched ONCE at the app root and shared via context. Previously
- * every consumer (navbar, dashboard guard, topbar, sidebar, each page) ran its
- * own `useSession`, each firing a separate `/api/auth/session` request with its
- * own loading state — which both slowed the dashboard down and caused a flash
- * of the empty "guest" UI while the slower fetches resolved. One provider fixes
- * both: a single request, a single loading state, no flash.
+ * Session is fetched ONCE at the app root and shared via context. Login is
+ * detected INSTANTLY from the locally-stored Supabase session (no network),
+ * then enriched in the background with the full DB-backed user (role,
+ * subscriptions) from /api/auth/session — so the UI never waits on a slow
+ * Supabase + DB round trip just to know whether someone is signed in.
  */
 const SessionContext = createContext<UseSessionReturn | null>(null);
+
+/** Build a preliminary user from the local session — instant, no network.
+ *  Role defaults to OWNER until the server confirms it. */
+function optimisticUser(u: SupabaseUser): SessionUser {
+  const meta = (u.user_metadata ?? {}) as {
+    full_name?: string;
+    business_name?: string;
+  };
+  return {
+    id: u.id,
+    authId: u.id,
+    tenantId: "",
+    fullName: meta.full_name ?? u.email?.split("@")[0] ?? "User",
+    email: u.email ?? "",
+    role: "OWNER",
+    businessName: meta.business_name ?? null,
+    emailVerified: Boolean(u.email_confirmed_at),
+    createdAt: u.created_at ? new Date(u.created_at) : new Date(),
+  };
+}
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [subscribedServices, setSubscribedServices] = useState<ServiceId[]>([]);
   const [loading, setLoading] = useState(true);
+  const [enriched, setEnriched] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Full, DB-backed session — slower (server round trip), authoritative.
   const fetchSession = useCallback(async () => {
     try {
-      setLoading(true);
       setError(null);
       const res = await fetch("/api/auth/session");
       if (!res.ok) {
@@ -51,34 +78,51 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setSubscribedServices(data.subscribedServices ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch session");
-      setUser(null);
-      setSubscribedServices([]);
     } finally {
+      setEnriched(true);
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchSession();
-
-    // In mock mode (no Supabase keys configured) the browser client is null.
-    // We still rely on fetchSession()/the session API route for auth state,
-    // so just skip the real-time auth listener instead of crashing.
     const supabase = createSupabaseBrowserClient();
-    if (!supabase) return;
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
+    if (supabase) {
+      // INSTANT: read the locally-stored session (no network) so the UI knows
+      // immediately whether someone is signed in.
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session?.user) {
+          setUser((prev) => prev ?? optimisticUser(data.session!.user));
+        }
+        setLoading(false);
+      });
+
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange(() => {
+        fetchSession();
+      });
+
+      // Enrich with the full DB-backed session in the background.
       fetchSession();
-    });
 
-    return () => subscription.unsubscribe();
+      return () => subscription.unsubscribe();
+    }
+
+    // Mock mode (no Supabase keys): rely on the server route only.
+    fetchSession();
   }, [fetchSession]);
 
   return (
     <SessionContext.Provider
-      value={{ user, subscribedServices, loading, error, refresh: fetchSession }}
+      value={{
+        user,
+        subscribedServices,
+        loading,
+        enriched,
+        error,
+        refresh: fetchSession,
+      }}
     >
       {children}
     </SessionContext.Provider>
@@ -94,6 +138,7 @@ export function useSession(): UseSessionReturn {
       user: null,
       subscribedServices: [],
       loading: true,
+      enriched: false,
       error: null,
       refresh: async () => {},
     };

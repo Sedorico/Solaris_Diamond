@@ -21,7 +21,7 @@ import { integrations } from "@/lib/env";
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, loading } = useSession();
+  const { user, loading, enriched } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isLogin = pathname === "/admin/login";
@@ -37,7 +37,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     return useAdminStore.persist.onFinishHydration(() => setHydrated(true));
   }, []);
 
-  const checking = mockMode ? !hydrated : loading;
+  // Admin gating needs the authoritative role, so wait for the full session
+  // (`enriched`) — not just the instant login check (`loading`).
+  const checking = mockMode ? !hydrated : loading || !enriched;
   const authorized = mockMode
     ? adminAuthed
     : !!user && user.role === "SUPERADMIN";
