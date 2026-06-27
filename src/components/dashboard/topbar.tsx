@@ -12,6 +12,7 @@ import {
   User,
 } from "lucide-react";
 import { NotificationBell } from "@/components/dashboard/notification-bell";
+import { LiveClock } from "@/components/motion/live-clock";
 import { dashboardNav } from "@/lib/data/dashboard-nav";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -54,7 +55,7 @@ export function Topbar() {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-15 items-center justify-between gap-3 border-b border-foreground/10 bg-background/30 px-4 backdrop-blur-xl sm:px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-foreground/10 px-4 sm:px-6">
       <div className="flex items-center gap-3">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
@@ -72,9 +73,13 @@ export function Topbar() {
             <SidebarNav onNavigate={() => setMobileOpen(false)} />
           </SheetContent>
         </Sheet>
-        <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.32em] text-muted-foreground/75">
-          <span className="h-px w-6 bg-accent/50" />
-          <span>{current?.title ?? "Overview"}</span>
+        <div className="flex items-center gap-3.5">
+          <span className="h-px w-8 bg-accent/60" />
+          <span className="text-sm font-semibold uppercase tracking-[0.2em] text-foreground/90 sm:text-[15px]">
+            {current?.title ?? "Overview"}
+          </span>
+          <span className="hidden h-4 w-px bg-foreground/15 sm:block" />
+          <LiveClock className="hidden font-mono text-[11px] tracking-[0.22em] text-muted-foreground sm:inline-flex" />
         </div>
       </div>
 

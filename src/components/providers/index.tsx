@@ -6,6 +6,7 @@ import { useTheme } from "next-themes";
 import { ThemeProvider } from "./theme-provider";
 import { QueryProvider } from "./query-provider";
 import { SessionProvider } from "@/lib/auth/hooks";
+import { ScrollProgress } from "@/components/motion/scroll-progress";
 
 function AppToaster() {
   const { resolvedTheme } = useTheme();
@@ -43,12 +44,13 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider
       attribute="class"
-      defaultTheme="light"
+      defaultTheme="system"
       enableSystem
       disableTransitionOnChange
     >
       <QueryProvider>
         <SessionProvider>
+          <ScrollProgress />
           {children}
           <AppToaster />
         </SessionProvider>

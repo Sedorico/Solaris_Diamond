@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { cn, initials } from "@/lib/utils";
 import { mainNav, siteConfig } from "@/lib/config/site";
+import { useConcierge } from "@/lib/store/concierge";
 import { useSession } from "@/lib/auth/hooks";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -47,6 +48,7 @@ export function Navbar() {
   const [menu, setMenu] = useState<string | null>(null);
   const pathname = usePathname();
   const router = useRouter();
+  const openConcierge = useConcierge((s) => s.setOpen);
   const { user, loading } = useSession();
 
   async function handleLogout() {
@@ -85,20 +87,35 @@ export function Navbar() {
           </div>
           {mainNav
             .filter((i) => i.title !== "Services")
-            .map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onMouseEnter={() => setMenu(null)}
-                className={cn(
-                  "group relative text-sm text-foreground/70 transition-colors hover:text-foreground",
-                  pathname === item.href && "text-foreground",
-                )}
-              >
-                {item.title}
-                <span className="absolute -bottom-1.5 left-0 h-px w-0 bg-accent transition-all duration-300 group-hover:w-full" />
-              </Link>
-            ))}
+            .map((item) =>
+              item.title === "Contact" ? (
+                <button
+                  key={item.href}
+                  onClick={() => {
+                    setMenu(null);
+                    openConcierge(true);
+                  }}
+                  onMouseEnter={() => setMenu(null)}
+                  className="group relative text-sm text-foreground/70 transition-colors hover:text-foreground"
+                >
+                  {item.title}
+                  <span className="absolute -bottom-1.5 left-0 h-px w-0 bg-accent transition-all duration-300 group-hover:w-full" />
+                </button>
+              ) : (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onMouseEnter={() => setMenu(null)}
+                  className={cn(
+                    "group relative text-sm text-foreground/70 transition-colors hover:text-foreground",
+                    pathname === item.href && "text-foreground",
+                  )}
+                >
+                  {item.title}
+                  <span className="absolute -bottom-1.5 left-0 h-px w-0 bg-accent transition-all duration-300 group-hover:w-full" />
+                </Link>
+              ),
+            )}
         </nav>
 
         <div className="flex items-center gap-1.5">
@@ -242,6 +259,7 @@ export function Navbar() {
 
 function MobileMenu({ pathname, isLoggedIn }: { pathname: string; isLoggedIn: boolean }) {
   const [open, setOpen] = useState(false);
+  const openConcierge = useConcierge((s) => s.setOpen);
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
@@ -254,20 +272,32 @@ function MobileMenu({ pathname, isLoggedIn }: { pathname: string; isLoggedIn: bo
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <Logo />
           <nav className="mt-12 flex flex-col">
-            {mainNav.map((item, i) => (
-              <SheetClose asChild key={item.href}>
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "font-display flex items-center gap-4 border-b border-border py-5 text-2xl font-medium transition-colors",
-                    pathname === item.href ? "text-accent" : "hover:text-accent",
-                  )}
-                >
-                  <span className="eyebrow w-6">{String(i + 1).padStart(2, "0")}</span>
-                  {item.title}
-                </Link>
-              </SheetClose>
-            ))}
+            {mainNav.map((item, i) =>
+              item.title === "Contact" ? (
+                <SheetClose asChild key={item.href}>
+                  <button
+                    onClick={() => openConcierge(true)}
+                    className="font-display flex items-center gap-4 border-b border-border py-5 text-left text-2xl font-medium transition-colors hover:text-accent"
+                  >
+                    <span className="eyebrow w-6">{String(i + 1).padStart(2, "0")}</span>
+                    {item.title}
+                  </button>
+                </SheetClose>
+              ) : (
+                <SheetClose asChild key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={cn(
+                      "font-display flex items-center gap-4 border-b border-border py-5 text-2xl font-medium transition-colors",
+                      pathname === item.href ? "text-accent" : "hover:text-accent",
+                    )}
+                  >
+                    <span className="eyebrow w-6">{String(i + 1).padStart(2, "0")}</span>
+                    {item.title}
+                  </Link>
+                </SheetClose>
+              ),
+            )}
           </nav>
           <div className="mt-auto flex flex-col gap-3">
             <div className="flex items-center justify-between border border-border px-4 py-3">

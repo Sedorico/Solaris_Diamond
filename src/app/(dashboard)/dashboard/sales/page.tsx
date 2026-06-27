@@ -12,10 +12,16 @@ import {
   Filter,
   Plus,
   Trash2,
+  Archive,
+  RotateCcw,
   X,
+  Tag,
+  SlidersHorizontal,
 } from "lucide-react";
 import { ModuleGate } from "@/components/dashboard/module-gate";
 import { StatCard } from "@/components/dashboard/ui";
+import { ActivityHistoryPanel } from "@/components/dashboard/activity-history";
+import { CategoryManagerDialog } from "@/components/dashboard/category-manager-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +40,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AreaChart, BarChart } from "@/components/dashboard/charts";
+import { AreaChart, HBarChart, PieChart } from "@/components/dashboard/charts";
 import {
   useBusinessStore,
   type SaleChannel,
@@ -69,6 +75,7 @@ export default function SalesPage() {
 
 const RANGE_OPTIONS: { value: RangePreset; label: string; short: string }[] = [
   { value: "today", label: "Today", short: "Today" },
+  { value: "month", label: "This month", short: "Month" },
   { value: "7d", label: "Last 7 days", short: "7d" },
   { value: "30d", label: "Last 30 days", short: "30d" },
   { value: "90d", label: "Last 90 days", short: "90d" },
@@ -83,10 +90,11 @@ interface EntryRow {
   itemName: string;
   qty: string;
   price: string;
+  categoryId: string;
 }
 
 function emptyRow(): EntryRow {
-  return { id: Math.random().toString(36).slice(2), itemName: "", qty: "1", price: "" };
+  return { id: Math.random().toString(36).slice(2), itemName: "", qty: "1", price: "", categoryId: "none" };
 }
 
 function SalesModule() {
@@ -96,9 +104,14 @@ function SalesModule() {
   const logSalesReport = useBusinessStore((s) => s.logSalesReport);
   const recentReports = useBusinessStore((s) => s.salesReports);
   const addCategory = useBusinessStore((s) => s.addSalesCategory);
+  const updateCategory = useBusinessStore((s) => s.updateSalesCategory);
   const deleteCategory = useBusinessStore((s) => s.deleteSalesCategory);
+  const archiveSale = useBusinessStore((s) => s.archiveSale);
+  const restoreSale = useBusinessStore((s) => s.restoreSale);
+  const deleteSale = useBusinessStore((s) => s.deleteSale);
+  const salesAuditLogs = useBusinessStore((s) => s.salesAuditLogs);
 
-  const [preset, setPreset] = useState<RangePreset>("30d");
+  const [preset, setPreset] = useState<RangePreset>("month");
   const [search, setSearch] = useState("");
   const [channel, setChannel] = useState<SaleChannel | "all">("all");
   const [categoryId, setCategoryId] = useState<string | "all">("all");
@@ -126,7 +139,6 @@ function SalesModule() {
   const [channelMgrOpen, setChannelMgrOpen] = useState(false);
 
   const [catMgrOpen, setCatMgrOpen] = useState(false);
-  const [newCat, setNewCat] = useState("");
 
   const range = useMemo(() => resolveRange(preset), [preset]);
   const filters = useMemo(
@@ -143,13 +155,17 @@ function SalesModule() {
     [categories],
   );
 
-  const kpis = useMemo(() => computeKPIs(sales, range, filters), [sales, range, filters]);
+  // Archived sales are set aside from the active dashboard + analytics.
+  const activeSales = useMemo(() => sales.filter((s) => !s.archivedAt), [sales]);
+  const archivedSales = useMemo(() => sales.filter((s) => !!s.archivedAt), [sales]);
+
+  const kpis = useMemo(() => computeKPIs(activeSales, range, filters), [activeSales, range, filters]);
   const effectiveGranularity: Granularity = granularity === "auto" ? pickGranularity(range) : granularity;
-  const trend = useMemo(() => computeRevenueTrend(sales, range, effectiveGranularity, filters), [sales, range, effectiveGranularity, filters]);
-  const topProducts = useMemo(() => computeTopProducts(sales, range, { mode: rankingMode, limit: 8, filters }), [sales, range, rankingMode, filters]);
-  const categoryBreakdown = useMemo(() => computeCategoryBreakdown(sales, range, categoryNames, filters), [sales, range, categoryNames, filters]);
-  const orderPerf = useMemo(() => computeOrderPerformance(sales, range, filters), [sales, range, filters]);
-  const ordersInWindow = useMemo(() => filterSales(sales, range, filters).slice(0, 12), [sales, range, filters]);
+  const trend = useMemo(() => computeRevenueTrend(activeSales, range, effectiveGranularity, filters), [activeSales, range, effectiveGranularity, filters]);
+  const topProducts = useMemo(() => computeTopProducts(activeSales, range, { mode: rankingMode, limit: 8, filters }), [activeSales, range, rankingMode, filters]);
+  const categoryBreakdown = useMemo(() => computeCategoryBreakdown(activeSales, range, categoryNames, filters), [activeSales, range, categoryNames, filters]);
+  const orderPerf = useMemo(() => computeOrderPerformance(activeSales, range, filters), [activeSales, range, filters]);
+  const ordersInWindow = useMemo(() => filterSales(activeSales, range, filters).slice(0, 12), [activeSales, range, filters]);
   const prevRange = useMemo(() => previousWindow(range), [range]);
   const trendData = trend.map((p) => ({ label: p.label, value: p.revenue }));
   const ordersData = trend.map((p) => ({ label: p.label, value: p.orders }));
@@ -180,6 +196,7 @@ function SalesModule() {
       name: r.itemName.trim(),
       qty: Math.max(1, Math.floor(parseFloat(r.qty))),
       price: parseFloat(r.price),
+      salesCategoryId: r.categoryId === "none" ? null : r.categoryId,
     }));
     recordSale(items, entryMethod, {
       channel: entryChannel,
@@ -197,7 +214,7 @@ function SalesModule() {
   }
 
   function handleExport() {
-    const csv = buildSalesCsv(sales, range, filters);
+    const csv = buildSalesCsv(activeSales, range, filters);
     downloadFile(csv.filename, csv.body);
     logSalesReport({
       kind: "EXPORT_CSV",
@@ -229,13 +246,6 @@ function SalesModule() {
     if (entryChannel === c) setEntryChannel(updated[0] ?? "MANUAL" as SaleChannel);
   }
 
-  function handleAddCategory() {
-    const val = newCat.trim();
-    if (!val) return;
-    addCategory({ name: val });
-    setNewCat("");
-  }
-
   function handleDeleteCategory(id: string) {
     const res = deleteCategory(id);
     if (!res.ok) toast.error(res.reason);
@@ -243,7 +253,7 @@ function SalesModule() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-6xl font-display">
       {/* Header */}
       <div className="mb-8 flex flex-col gap-4">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -260,14 +270,22 @@ function SalesModule() {
               {RANGE_OPTIONS.find((o) => o.value === preset)?.label.toLowerCase()}.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="accent" size="sm" onClick={() => setRecordOpen(true)} className="gap-2">
-              <Plus className="size-4" />
-              Record Sale
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setChannelMgrOpen(true)}>
+              <SlidersHorizontal className="size-4" />
+              Manage Channels
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setCatMgrOpen(true)}>
+              <Tag className="size-4" />
+              Manage Categories
             </Button>
             <Button onClick={handleExport} variant="outline" size="sm">
               <ArrowDownToLine className="size-4" />
               Export CSV
+            </Button>
+            <Button variant="accent" size="sm" onClick={() => setRecordOpen(true)} className="gap-2">
+              <Plus className="size-4" />
+              Record Sale
             </Button>
           </div>
         </div>
@@ -301,48 +319,30 @@ function SalesModule() {
             />
           </div>
 
-          <div className="flex items-center gap-1">
-            <Select value={channel} onValueChange={(v) => setChannel(v as SaleChannel | "all")}>
-              <SelectTrigger className="h-9 w-36 text-xs">
-                <Filter className="size-3.5" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All channels</SelectItem>
-                {channels.map((c) => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <button
-              onClick={() => setChannelMgrOpen(true)}
-              className="flex size-9 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground"
-              title="Manage channels"
-            >
-              <Plus className="size-3.5" />
-            </button>
-          </div>
+          <Select value={channel} onValueChange={(v) => setChannel(v as SaleChannel | "all")}>
+            <SelectTrigger className="h-9 w-36 text-xs">
+              <Filter className="size-3.5" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All channels</SelectItem>
+              {channels.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-          <div className="flex items-center gap-1">
-            <Select value={categoryId} onValueChange={setCategoryId}>
-              <SelectTrigger className="h-9 w-40 text-xs">
-                <SelectValue placeholder="All categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All categories</SelectItem>
-                {categories.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <button
-              onClick={() => setCatMgrOpen(true)}
-              className="flex size-9 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground"
-              title="Manage categories"
-            >
-              <Plus className="size-3.5" />
-            </button>
-          </div>
+          <Select value={categoryId} onValueChange={setCategoryId}>
+            <SelectTrigger className="h-9 w-40 text-xs">
+              <SelectValue placeholder="All categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -373,7 +373,7 @@ function SalesModule() {
 
         {/* ── OVERVIEW ── */}
         <TabsContent value="overview" className="mt-6 flex flex-col gap-6">
-          <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
             <Card>
               <CardHead
                 title="Revenue trend"
@@ -414,7 +414,7 @@ function SalesModule() {
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHead title="Orders over time" />
-              <BarChart data={ordersData} format={(v) => `${v}`} />
+              <AreaChart data={ordersData} />
             </Card>
             <Card>
               <CardHead title="Category breakdown" />
@@ -430,7 +430,7 @@ function SalesModule() {
               title="Revenue trend"
               subtitle="Revenue per bucket in the active window"
               right={
-                <Tabs value={granularity} onValueChange={(v) => setGranularity(v as Granularity | "auto")}>
+                <Tabs value={effectiveGranularity} onValueChange={(v) => setGranularity(v as Granularity | "auto")}>
                   <TabsList className="h-9">
                     <TabsTrigger value="day" className="text-xs">Daily</TabsTrigger>
                     <TabsTrigger value="week" className="text-xs">Weekly</TabsTrigger>
@@ -439,16 +439,16 @@ function SalesModule() {
                 </Tabs>
               }
             />
-            <BarChart data={trendData} format={(v) => formatCurrency(v)} />
+            <AreaChart data={trendData} />
           </Card>
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHead title="Items sold" />
-              <BarChart data={trend.map((p) => ({ label: p.label, value: p.itemsSold }))} format={(v) => `${v}`} />
+              <AreaChart data={trend.map((p) => ({ label: p.label, value: p.itemsSold }))} />
             </Card>
             <Card>
               <CardHead title="Orders" />
-              <BarChart data={ordersData} format={(v) => `${v}`} />
+              <AreaChart data={ordersData} />
             </Card>
           </div>
         </TabsContent>
@@ -496,9 +496,36 @@ function SalesModule() {
             </Card>
           </div>
           <Card>
-            <CardHead title="Recent orders" subtitle={`${ordersInWindow.length} of ${filterSales(sales, range, filters).length} in window`} />
-            <OrdersList orders={ordersInWindow} />
+            <CardHead title="Recent orders" subtitle={`${ordersInWindow.length} of ${filterSales(activeSales, range, filters).length} in window`} />
+            <OrdersList
+              orders={ordersInWindow}
+              onArchive={(id) => { archiveSale(id); toast.success("Order archived"); }}
+            />
           </Card>
+
+          {archivedSales.length > 0 && (
+            <Card>
+              <CardHead title="Archived" subtitle={`${archivedSales.length} archived — restore, or delete permanently`} />
+              <OrdersList
+                orders={archivedSales}
+                onRestore={(id) => { restoreSale(id); toast.success("Order restored"); }}
+                onDelete={(id) => { deleteSale(id); toast.success("Order deleted"); }}
+              />
+            </Card>
+          )}
+
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <ActivityHistoryPanel
+              title="Sales activity"
+              entries={salesAuditLogs.map((l) => ({
+                id: l.id,
+                action: l.action,
+                label: l.entityLabel,
+                user: l.user,
+                createdAt: l.createdAt,
+              }))}
+            />
+          </div>
         </TabsContent>
 
         {/* ── REPORTS ── */}
@@ -528,81 +555,112 @@ function SalesModule() {
 
       {/* ── RECORD SALE MODAL ── */}
       <Dialog open={recordOpen} onOpenChange={setRecordOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-h-[88vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Record a sale</DialogTitle>
+            <DialogTitle className="text-xl">Record a sale</DialogTitle>
             <p className="text-sm text-muted-foreground">
               Manually enter items sold. Stock levels are not affected.
             </p>
           </DialogHeader>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-                  <th className="pb-2 pr-3 text-left font-medium">Item name</th>
-                  <th className="pb-2 pr-3 text-left font-medium w-24">Qty</th>
-                  <th className="pb-2 pr-3 text-left font-medium w-36">Unit price (₱)</th>
-                  <th className="pb-2 text-right font-medium w-28">Line total</th>
-                  <th className="pb-2 w-10" />
-                </tr>
-              </thead>
-              <tbody>
-                {entryRows.map((row) => {
-                  const lineTotal = (parseFloat(row.qty) || 0) * (parseFloat(row.price) || 0);
-                  return (
-                    <tr key={row.id} className="border-b border-border/40 last:border-0">
-                      <td className="py-2 pr-3">
-                        <Input placeholder="e.g. Artisan Cold Brew 1L" value={row.itemName} onChange={(e) => updateRow(row.id, "itemName", e.target.value)} className="h-9" />
-                      </td>
-                      <td className="py-2 pr-3">
-                        <Input type="number" min="1" value={row.qty} onChange={(e) => updateRow(row.id, "qty", e.target.value)} className="h-9 w-24" />
-                      </td>
-                      <td className="py-2 pr-3">
-                        <Input type="number" min="0" step="0.01" placeholder="0.00" value={row.price} onChange={(e) => updateRow(row.id, "price", e.target.value)} className="h-9 w-36" />
-                      </td>
-                      <td className="py-2 pr-3 text-right font-medium tabular">
+
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                Items
+              </span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                {entryRows.length} line{entryRows.length === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            {entryRows.map((row, idx) => {
+              const lineTotal = (parseFloat(row.qty) || 0) * (parseFloat(row.price) || 0);
+              return (
+                <div key={row.id} className="rounded-xl border border-border bg-background/40 p-4 transition-colors hover:border-border/80">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                      Item {idx + 1}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="tabular text-sm font-semibold">
                         {lineTotal > 0 ? formatCurrency(lineTotal) : "—"}
-                      </td>
-                      <td className="py-2 text-right">
-                        <button onClick={() => removeRow(row.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                          <Trash2 className="size-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </span>
+                      <button
+                        onClick={() => removeRow(row.id)}
+                        disabled={entryRows.length === 1}
+                        title="Remove item"
+                        className="text-muted-foreground transition-colors hover:text-destructive disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-muted-foreground"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-12">
+                    <div className="col-span-2 flex flex-col gap-1.5 sm:col-span-12">
+                      <Label className="text-xs">Item name</Label>
+                      <Input placeholder="e.g. Artisan Cold Brew 1L" value={row.itemName} onChange={(e) => updateRow(row.id, "itemName", e.target.value)} className="h-9" />
+                    </div>
+                    <div className="col-span-2 flex flex-col gap-1.5 sm:col-span-6">
+                      <Label className="text-xs">Category</Label>
+                      <Select value={row.categoryId} onValueChange={(v) => updateRow(row.id, "categoryId", v)}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="Uncategorised" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Uncategorised</SelectItem>
+                          {categories.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex flex-col gap-1.5 sm:col-span-3">
+                      <Label className="text-xs">Qty</Label>
+                      <Input type="number" min="1" value={row.qty} onChange={(e) => updateRow(row.id, "qty", e.target.value)} className="h-9" />
+                    </div>
+                    <div className="flex flex-col gap-1.5 sm:col-span-3">
+                      <Label className="text-xs">Unit price (₱)</Label>
+                      <Input type="number" min="0" step="0.01" placeholder="0.00" value={row.price} onChange={(e) => updateRow(row.id, "price", e.target.value)} className="h-9" />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            <Button variant="outline" size="sm" onClick={addRow} className="w-full border-dashed">
+              <Plus className="size-4" /> Add item
+            </Button>
           </div>
-          <Button variant="outline" size="sm" onClick={addRow} className="mt-2">
-            <Plus className="size-4" /> Add item
-          </Button>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4">
-            <div className="flex flex-col gap-1.5">
-              <Label>Payment method</Label>
-              <Select value={entryMethod} onValueChange={(v) => setEntryMethod(v as SaleMethod)}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {METHODS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label>Channel</Label>
-              <Select value={entryChannel} onValueChange={(v) => setEntryChannel(v as SaleChannel)}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {channels.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label>Customer <span className="text-muted-foreground font-normal">(optional)</span></Label>
-              <Input placeholder="Customer name" value={entryCustomer} onChange={(e) => setEntryCustomer(e.target.value)} className="h-9" />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label>Notes <span className="text-muted-foreground font-normal">(optional)</span></Label>
-              <Input placeholder="Any remarks" value={entryNotes} onChange={(e) => setEntryNotes(e.target.value)} className="h-9" />
+          <div className="flex flex-col gap-3">
+            <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+              Payment &amp; details
+            </span>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="flex flex-col gap-1.5">
+                <Label>Payment method</Label>
+                <Select value={entryMethod} onValueChange={(v) => setEntryMethod(v as SaleMethod)}>
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {METHODS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Channel</Label>
+                <Select value={entryChannel} onValueChange={(v) => setEntryChannel(v as SaleChannel)}>
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {channels.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Customer <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                <Input placeholder="Customer name" value={entryCustomer} onChange={(e) => setEntryCustomer(e.target.value)} className="h-9" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Notes <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                <Input placeholder="Any remarks" value={entryNotes} onChange={(e) => setEntryNotes(e.target.value)} className="h-9" />
+              </div>
             </div>
           </div>
           <div className="flex items-center justify-between border-t border-border pt-4 mt-2">
@@ -653,39 +711,25 @@ function SalesModule() {
       </Dialog>
 
       {/* ── CATEGORY MANAGER MODAL ── */}
-      <Dialog open={catMgrOpen} onOpenChange={setCatMgrOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Manage categories</DialogTitle>
-            <p className="text-sm text-muted-foreground">Add or remove product categories.</p>
-          </DialogHeader>
-          <div className="flex flex-col gap-3 mt-2">
-            {categories.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">No categories yet.</p>
-            )}
-            {categories.map((c) => (
-              <div key={c.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
-                <span className="text-sm font-medium">{c.name}</span>
-                <button onClick={() => handleDeleteCategory(c.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                  <X className="size-4" />
-                </button>
-              </div>
-            ))}
-            <div className="flex gap-2 mt-2">
-              <Input
-                placeholder="e.g. Beverages"
-                value={newCat}
-                onChange={(e) => setNewCat(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
-                className="h-9"
-              />
-              <Button variant="accent" size="sm" onClick={handleAddCategory}>
-                <Plus className="size-4" /> Add
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <CategoryManagerDialog
+        open={catMgrOpen}
+        onOpenChange={setCatMgrOpen}
+        categories={categories}
+        onAdd={(name, color) => {
+          addCategory({ name, color });
+          toast.success(`Category "${name}" added`);
+        }}
+        onUpdate={(id, name, color) => {
+          updateCategory(id, { name, color });
+          toast.success("Category updated");
+        }}
+        onDelete={handleDeleteCategory}
+        usageCount={(cat) =>
+          sales.filter((s) => s.items.some((i) => i.salesCategoryId === cat.id)).length
+        }
+        usageNoun="sale"
+        placeholder="e.g. Beverages"
+      />
     </div>
   );
 }
@@ -762,8 +806,14 @@ function TopProductList({ products, mode }: { products: ReturnType<typeof comput
 
 function ProductPerfBars({ products, mode }: { products: ReturnType<typeof computeTopProducts>; mode: RankingMode }) {
   if (products.length === 0) return <p className="py-8 text-center text-sm text-muted-foreground">No data yet.</p>;
-  const data = products.map((p) => ({ label: p.name.length > 14 ? p.name.slice(0, 12) + "…" : p.name, value: mode === "qty" ? p.qty : mode === "frequency" ? p.orders : p.revenue }));
-  return <BarChart data={data} format={(v) => mode === "revenue" ? formatCurrency(v) : `${v}`} />;
+  const data = products.map((p) => ({ label: p.name, value: mode === "qty" ? p.qty : mode === "frequency" ? p.orders : p.revenue }));
+  const format = (v: number) => (mode === "revenue" ? formatCurrency(v) : `${v}`);
+  return (
+    <div className="flex flex-col items-center gap-8 lg:flex-row lg:gap-10">
+      <PieChart data={data} showLegend={false} className="shrink-0" />
+      <HBarChart data={data} colored format={format} className="flex-1" />
+    </div>
+  );
 }
 
 function ProductTable({ products, mode }: { products: ReturnType<typeof computeTopProducts>; mode: RankingMode }) {
@@ -839,8 +889,19 @@ function DistributionList({ rows }: { rows: Array<{ label: string; count: number
   );
 }
 
-function OrdersList({ orders }: { orders: ReturnType<typeof filterSales> }) {
+function OrdersList({
+  orders,
+  onArchive,
+  onRestore,
+  onDelete,
+}: {
+  orders: ReturnType<typeof filterSales>;
+  onArchive?: (id: string) => void;
+  onRestore?: (id: string) => void;
+  onDelete?: (id: string) => void;
+}) {
   if (orders.length === 0) return <p className="py-8 text-center text-sm text-muted-foreground">No orders in this window.</p>;
+  const hasActions = !!(onArchive || onRestore || onDelete);
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -852,6 +913,7 @@ function OrdersList({ orders }: { orders: ReturnType<typeof filterSales> }) {
             <th className="py-3 pr-3 font-medium">Method</th>
             <th className="py-3 pr-3 text-right font-medium">Items</th>
             <th className="py-3 pr-3 text-right font-medium">Total</th>
+            {hasActions && <th className="py-3 text-right font-medium" />}
           </tr>
         </thead>
         <tbody>
@@ -865,6 +927,27 @@ function OrdersList({ orders }: { orders: ReturnType<typeof filterSales> }) {
                 <td className="py-3 pr-3">{s.method}</td>
                 <td className="py-3 pr-3 text-right tabular">{itemCount}</td>
                 <td className="py-3 pr-3 text-right font-medium tabular">{formatCurrency(s.total)}</td>
+                {hasActions && (
+                  <td className="py-3 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      {onArchive && (
+                        <Button variant="ghost" size="icon-sm" onClick={() => onArchive(s.id)} title="Archive">
+                          <Archive className="size-3.5 text-muted-foreground hover:text-foreground" />
+                        </Button>
+                      )}
+                      {onRestore && (
+                        <Button variant="ghost" size="icon-sm" onClick={() => onRestore(s.id)} title="Restore">
+                          <RotateCcw className="size-3.5 text-muted-foreground hover:text-foreground" />
+                        </Button>
+                      )}
+                      {onDelete && (
+                        <Button variant="ghost" size="icon-sm" onClick={() => onDelete(s.id)} title="Delete permanently">
+                          <Trash2 className="size-3.5 text-muted-foreground hover:text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                )}
               </tr>
             );
           })}

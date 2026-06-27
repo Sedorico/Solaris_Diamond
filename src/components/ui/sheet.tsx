@@ -52,7 +52,7 @@ function SheetContent({ side = "right", className, children, hideClose, ...props
     <SheetPortal>
       <SheetOverlay />
       <DialogPrimitive.Content
-        className={cn(sheetVariants({ side }), className)}
+        className={cn(sheetVariants({ side }), "font-display", className)}
         {...(props as object)}
       >
         {children}

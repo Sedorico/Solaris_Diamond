@@ -14,6 +14,9 @@ export function BundleCard({ bundle, index }: { bundle: Bundle; index: number })
 
   return (
     <motion.div
+      initial={{ opacity: 0, y: 18 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
       whileHover={{ y: -6 }}
       transition={{ type: "spring", stiffness: 300, damping: 26 }}
       className={cn(

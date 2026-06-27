@@ -63,7 +63,7 @@ export function Hero() {
       />
 
       {/* ─────────── Hero content ─────────── */}
-      <div className="relative flex flex-1 flex-col justify-center pt-20 pb-12 sm:pt-32">
+      <div className="relative flex flex-1 flex-col justify-center pt-12 pb-10 sm:pt-16">
         {/* Edition mark — tiny serif "chapter" marker, top-left over the headline */}
         <motion.div
           custom={2}
@@ -92,7 +92,7 @@ export function Hero() {
         </motion.h1>
 
         {/* ─────────── Two-column lockup below the headline ─────────── */}
-        <div className="mt-16 grid grid-cols-1 gap-12 md:grid-cols-12 md:gap-8">
+        <div className="mt-10 grid grid-cols-1 gap-12 md:grid-cols-12 md:gap-8">
           {/* Left: refined intro paragraph */}
           <motion.div
             custom={4}

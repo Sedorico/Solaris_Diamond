@@ -57,8 +57,9 @@ export function StatCard({
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -3 }}
       transition={{ duration: 0.45, delay: index * 0.06, ease: [0.22, 1, 0.36, 1] }}
-      className="rounded-2xl border border-border bg-card p-6"
+      className="rounded-2xl border border-border bg-card p-6 transition-shadow duration-300 hover:shadow-premium"
     >
       <div className="flex items-center justify-between">
         <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">

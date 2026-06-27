@@ -160,19 +160,19 @@
   }
 
   @media (pointer: fine) {
-    html { cursor: url("/cursors/arrow-light.svg") 5 3, auto; }
-    html.dark { cursor: url("/cursors/arrow-dark.svg") 5 3, auto; }
+    html { cursor: url("/cursors/arrow-light.svg") 9 5, auto; }
+    html.dark { cursor: url("/cursors/arrow-dark.svg") 9 5, auto; }
 
     a, button, [role="button"], label, summary, select,
     input[type="button"], input[type="submit"], input[type="checkbox"],
     input[type="radio"], input[type="range"], [data-slot] {
-      cursor: url("/cursors/arrow-light.svg") 5 3, auto;
+      cursor: url("/cursors/arrow-light.svg") 9 5, auto;
     }
     .dark a, .dark button, .dark [role="button"], .dark label, .dark summary,
     .dark select, .dark input[type="button"], .dark input[type="submit"],
     .dark input[type="checkbox"], .dark input[type="radio"],
     .dark input[type="range"], .dark [data-slot] {
-      cursor: url("/cursors/arrow-dark.svg") 5 3, auto;
+      cursor: url("/cursors/arrow-dark.svg") 9 5, auto;
     }
   }
 
@@ -216,6 +216,24 @@
     -webkit-backdrop-filter: blur(30px) saturate(200%);
     border: 1px solid var(--glass-border);
     box-shadow: var(--glass-shadow);
+  }
+  /* Glossy frosted-glass panel — used for modal cards (dialogs). Translucent
+     blurred body with a bright top highlight + depth shadow for the "glass" look. */
+  .glass-panel {
+    /* Premium frosted material: a soft top sheen over a vibrant, heavily
+       blurred translucent body — refined, not a see-through window. */
+    background:
+      linear-gradient(to bottom, color-mix(in oklch, white 14%, transparent) 0%, transparent 34%),
+      color-mix(in oklch, var(--card) 72%, transparent);
+    backdrop-filter: blur(40px) saturate(200%) brightness(1.04);
+    -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.04);
+    border: 1px solid color-mix(in oklch, white 16%, transparent);
+    box-shadow:
+      inset 0 1px 0 0 color-mix(in oklch, white 55%, transparent),
+      inset 0 0 0 1px color-mix(in oklch, white 5%, transparent),
+      0 1px 2px oklch(0.19 0.012 60 / 0.12),
+      0 18px 40px -16px oklch(0.19 0.012 60 / 0.28),
+      0 48px 90px -32px oklch(0.19 0.012 60 / 0.46);
   }
 
   /* Dashboard frosted/glossy glass — auto-applied to every card panel inside
@@ -292,6 +310,41 @@
   }
   .auth-glow-card:hover .auth-glow-orb {
     opacity: 1;
+  }
+
+  /* ── Site-wide "dynamic" helpers ── */
+  /* Interactive lift for cards / clickable surfaces. */
+  .sd-hover-lift {
+    transition:
+      transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .sd-hover-lift:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-premium);
+    }
+    /* Pure-CSS scroll-driven reveal — progressively enhanced, a no-op where
+       unsupported (the element simply stays visible). Don't put it on elements
+       with position: fixed children (the transform becomes their containing
+       block). */
+    @supports (animation-timeline: view()) {
+      .sd-reveal {
+        animation: sd-reveal-kf linear both;
+        animation-timeline: view();
+        animation-range: entry 4% cover 20%;
+      }
+    }
+  }
+  @keyframes sd-reveal-kf {
+    from {
+      opacity: 0;
+      transform: translateY(26px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }
 
@@ -381,4 +434,21 @@
 .pos-scope .pos-charge-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ============================================================ */
+/*  THEME SWITCH — circular reveal via the View Transitions API */
+/*  The new theme snapshot stacks on top and is clipped open    */
+/*  from the toggle button (animation driven in theme-toggle).  */
+/* ============================================================ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 2;
 }

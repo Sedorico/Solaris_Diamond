@@ -19,8 +19,9 @@ export function ServiceCard({ service }: { service: Service; index: number }) {
       initial={{ opacity: 0, y: 16 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-80px" }}
+      whileHover={{ y: -4 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="overflow-hidden rounded-xl border border-border bg-card shadow-premium"
+      className="overflow-hidden rounded-xl border border-border bg-card shadow-premium transition-shadow duration-300 hover:shadow-glow"
     >
       <div className="grid lg:grid-cols-2">
         {/* Left — plan + price */}

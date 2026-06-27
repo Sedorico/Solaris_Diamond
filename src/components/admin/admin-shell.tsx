@@ -8,6 +8,7 @@ import { PremiumBackdrop } from "@/components/checkout/premium-backdrop";
 import { DiamondMark } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LiveClock } from "@/components/motion/live-clock";
 import {
   Sheet,
   SheetContent,
@@ -76,7 +77,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <AdminSidebar />
         </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-15 items-center justify-between gap-3 border-b border-foreground/10 bg-background/30 px-4 backdrop-blur-xl sm:px-6">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-foreground/10 px-4 sm:px-6">
           <div className="flex items-center gap-3">
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
@@ -94,9 +95,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 <AdminSidebar onNavigate={() => setMobileOpen(false)} />
               </SheetContent>
             </Sheet>
-            <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.32em] text-muted-foreground/75">
-              <span className="h-px w-6 bg-accent/50" />
-              <span>Admin Console</span>
+            <div className="flex items-center gap-3.5">
+              <span className="h-px w-8 bg-accent/60" />
+              <span className="text-sm font-semibold uppercase tracking-[0.2em] text-foreground/90 sm:text-[15px]">
+                Admin Console
+              </span>
+              <span className="hidden h-4 w-px bg-foreground/15 sm:block" />
+              <LiveClock className="hidden font-mono text-[11px] tracking-[0.22em] text-muted-foreground sm:inline-flex" />
             </div>
           </div>
           <ThemeToggle />

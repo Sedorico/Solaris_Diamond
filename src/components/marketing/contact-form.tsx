@@ -8,6 +8,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Reveal } from "@/components/motion/reveal";
 import { sleep } from "@/lib/utils";
 
 const schema = z.object({
@@ -36,6 +37,7 @@ export function ContactForm() {
   }
 
   return (
+    <Reveal as="div">
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Full name" error={errors.name?.message}>
@@ -61,6 +63,7 @@ export function ContactForm() {
         {!isSubmitting && <ArrowRight className="size-4" />}
       </Button>
     </form>
+    </Reveal>
   );
 }
 

@@ -15,7 +15,7 @@ import { MeshGradient } from "@paper-design/shaders-react";
 // White × gold silk (light) / black × gold silk (dark). The base colour is
 // weighted (repeated) so white/black dominates, with a smooth champagne→gold
 // ramp so the gold melts in instead of jumping (the "fake gradient" look).
-const LIGHT_COLORS = ["#ffffff", "#ffffff", "#f3ead8", "#dcbf85", "#c2912e"];
+const LIGHT_COLORS = ["#ffffff", "#fbf4e8", "#ecd9b6", "#d2b074", "#b3914f"];
 const DARK_COLORS = ["#000000", "#000000", "#171009", "#3a2a12", "#caa03c"];
 
 export function MeshGradientScene() {
@@ -33,17 +33,42 @@ export function MeshGradientScene() {
     return () => mo.disconnect();
   }, []);
 
+  const colors = dark ? DARK_COLORS : LIGHT_COLORS;
+
   return (
-    <MeshGradient
-      colors={dark ? DARK_COLORS : LIGHT_COLORS}
-      distortion={0.9}
-      swirl={0.65}
-      grainMixer={0.18}
-      grainOverlay={0.04}
-      speed={0.28}
-      scale={1.3}
-      style={{ width: "100%", height: "100%" }}
-    />
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      {/* Base silk drape — large, slow folds */}
+      <MeshGradient
+        colors={colors}
+        distortion={1.0}
+        swirl={0.88}
+        grainMixer={0.04}
+        grainOverlay={0.0}
+        speed={0.24}
+        scale={1.5}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+      />
+      {/* Second layer — a true mirror of the base silk: identical colours and
+          distortion/swirl/scale, but reverse speed so it counter-flows. At 0.5
+          opacity it blends 50/50 with the base so both flows read equally
+          (the reciprocal reads as a mirror instead of replacing the base). */}
+      <MeshGradient
+        colors={colors}
+        distortion={1.0}
+        swirl={0.88}
+        grainMixer={0.0}
+        grainOverlay={0.0}
+        speed={-0.24}
+        scale={1.5}
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          opacity: 0.5,
+        }}
+      />
+    </div>
   );
 }
 

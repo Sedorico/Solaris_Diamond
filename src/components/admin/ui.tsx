@@ -1,9 +1,42 @@
 "use client";
 
-import { motion } from "motion/react";
+import { useEffect, useRef } from "react";
+import { motion, useMotionValue, useSpring } from "motion/react";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+/** Counts up to `value` on mount, formatted with the same formatter as the KPI. */
+function AnimatedNumber({
+  value,
+  format,
+}: {
+  value: number;
+  format?: (v: number) => string;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const mv = useMotionValue(0);
+  const spring = useSpring(mv, { stiffness: 60, damping: 18, mass: 1 });
+
+  useEffect(() => {
+    mv.set(value);
+  }, [value, mv]);
+
+  useEffect(() => {
+    return spring.on("change", (latest) => {
+      if (ref.current) {
+        const v = Math.round(latest);
+        ref.current.textContent = format ? format(v) : v.toLocaleString("en-US");
+      }
+    });
+  }, [spring, format]);
+
+  return (
+    <span ref={ref} suppressHydrationWarning>
+      {format ? format(0) : "0"}
+    </span>
+  );
+}
 
 export function PageHeader({
   title,
@@ -54,8 +87,7 @@ export function KpiCard({
   format?: (v: number) => string;
   index?: number;
 }) {
-  const display =
-    typeof value === "number" && format ? format(value) : String(value);
+  const isNumber = typeof value === "number";
   const hasDelta = typeof delta === "number";
   const positive = hasDelta && delta! > 0;
   const negative = hasDelta && delta! < 0;
@@ -65,6 +97,7 @@ export function KpiCard({
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -3 }}
       transition={{
         duration: 0.45,
         delay: index * 0.05,
@@ -82,7 +115,11 @@ export function KpiCard({
       </div>
 
       <p className="font-display mt-5 text-4xl font-normal leading-none tracking-tight tabular">
-        {display}
+        {isNumber ? (
+          <AnimatedNumber value={value as number} format={format} />
+        ) : (
+          String(value)
+        )}
       </p>
 
       <div className="mt-3 flex items-center gap-1.5 text-xs">
@@ -121,7 +158,11 @@ export function SectionCard({
   className?: string;
 }) {
   return (
-    <section
+    <motion.section
+      initial={{ opacity: 0, y: 18 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-60px" }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
         "rounded-2xl border border-border bg-card p-6",
         className,
@@ -145,7 +186,7 @@ export function SectionCard({
         </header>
       )}
       {children}
-    </section>
+    </motion.section>
   );
 }
 
@@ -363,7 +404,7 @@ export function Donut({
           strokeWidth={stroke}
           className="text-secondary"
         />
-        <circle
+        <motion.circle
           cx={size / 2}
           cy={size / 2}
           r={r}
@@ -372,8 +413,11 @@ export function Donut({
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={c}
-          strokeDashoffset={offset}
-          className="text-accent transition-all"
+          initial={{ strokeDashoffset: c }}
+          whileInView={{ strokeDashoffset: offset }}
+          viewport={{ once: true }}
+          transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+          className="text-accent"
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">

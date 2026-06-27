@@ -186,6 +186,23 @@ export interface Sale {
   notes?: string;
   date: string;
   refundedAt?: string | null;
+  archivedAt?: string | null;
+}
+
+export type SaleAuditAction =
+  | "SALE_CREATED"
+  | "SALE_ARCHIVED"
+  | "SALE_RESTORED"
+  | "SALE_DELETED";
+
+export interface SaleAuditEntry {
+  id: string;
+  action: SaleAuditAction;
+  entityId: string;
+  entityLabel: string;
+  user: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
 }
 
 export type SalesReportKind =
@@ -459,6 +476,16 @@ function seedExpenseCategories(): ExpenseCategory[] {
 function seedSales(products: Product[]): Sale[] {
   const sales: Sale[] = [];
   const pick = () => products[Math.floor(Math.random() * products.length)];
+  // Map each product's inventory category onto a sales category so the
+  // Category breakdown widget renders real slices instead of "Uncategorised".
+  const invToSalesCategory: Record<string, string> = {
+    "icat-bev": "scat-drinks",
+    "icat-cof": "scat-drinks",
+    "icat-food": "scat-food",
+    "icat-merch": "scat-merch",
+    "icat-eq": "scat-other",
+    "icat-sup": "scat-other",
+  };
   const customers = [
     null, null, null, null,
     "Jane Cooper", "Marcus Ng", "Lia Reyes", "Daniel Park",
@@ -479,7 +506,7 @@ function seedSales(products: Product[]): Sale[] {
             qty: 1 + Math.floor(Math.random() * 3),
             price: p.price,
             cost: p.cost,
-            salesCategoryId: null,
+            salesCategoryId: invToSalesCategory[p.categoryId ?? ""] ?? "scat-other",
           };
         },
       );
@@ -562,6 +589,7 @@ interface BusinessState {
   expenseReports: ExpenseReportLog[];
   sales: Sale[];
   salesReports: SalesReportLog[];
+  salesAuditLogs: SaleAuditEntry[];
   attendance: AttendanceLog[];
   team: string[];
 
@@ -609,6 +637,9 @@ interface BusinessState {
     customer?: string;
     notes?: string;
   }) => Sale;
+  archiveSale: (id: string) => void;
+  restoreSale: (id: string) => void;
+  deleteSale: (id: string) => void;
 
   logSalesReport: (entry: {
     kind: SalesReportKind;
@@ -640,9 +671,11 @@ const initial = () => {
     expenseCategories: seedExpenseCategories(),
     expenseAuditLogs: [] as ExpenseAuditEntry[],
     expenseReports: [] as ExpenseReportLog[],
-    // Sales start empty — subscriber enters their own data
-    sales: [] as Sale[],
+    // Seeded demo sales so the Sales dashboard + charts render with data in
+    // mock mode (matches the README: "all module data is seeded").
+    sales: seedSales(products),
     salesReports: [] as SalesReportLog[],
+    salesAuditLogs: [] as SaleAuditEntry[],
     attendance: seedAttendance,
     team: ["Maria Santos", "David Cruz", "Aisha Rahman", "Liam O'Brien", "Noah Kim"],
   };
@@ -785,16 +818,14 @@ export const useBusinessStore = create<BusinessState>()(
         const state = get();
         const product = state.products.find((p) => p.id === id);
         if (!product) return { ok: false, reason: "Not found" };
-        const hasHistory = state.transactions.some((t) => t.productId === id);
-        if (hasHistory) {
-          return {
-            ok: false,
-            reason: "Product has stock history — archive it to preserve the audit trail.",
-          };
-        }
+        // Hard delete — remove the product and its stock history/ledger so no
+        // orphaned records remain. (Archive-first flow means this only happens
+        // from the Archived view.)
         const now = new Date().toISOString();
         set((s) => ({
           products: s.products.filter((p) => p.id !== id),
+          transactions: s.transactions.filter((t) => t.productId !== id),
+          ledger: s.ledger.filter((l) => l.productId !== id),
           auditLogs: [
             {
               id: uid("aud"),
@@ -1314,9 +1345,72 @@ export const useBusinessStore = create<BusinessState>()(
           customer: opts?.customer,
           notes: opts?.notes,
           date: new Date().toISOString(),
+          archivedAt: null,
         };
-        set((s) => ({ sales: [sale, ...s.sales] }));
+        set((s) => ({
+          sales: [sale, ...s.sales],
+          salesAuditLogs: [
+            {
+              id: uid("saud"),
+              action: "SALE_CREATED",
+              entityId: sale.id,
+              entityLabel: sale.ref,
+              user: DEMO_USER,
+              createdAt: sale.date,
+            },
+            ...s.salesAuditLogs,
+          ],
+        }));
         return sale;
+      },
+
+      archiveSale: (id) => {
+        const now = new Date().toISOString();
+        set((s) => {
+          const sale = s.sales.find((x) => x.id === id);
+          if (!sale) return s;
+          return {
+            sales: s.sales.map((x) =>
+              x.id === id ? { ...x, archivedAt: now } : x,
+            ),
+            salesAuditLogs: [
+              { id: uid("saud"), action: "SALE_ARCHIVED", entityId: id, entityLabel: sale.ref, user: DEMO_USER, createdAt: now },
+              ...s.salesAuditLogs,
+            ],
+          };
+        });
+      },
+
+      restoreSale: (id) => {
+        const now = new Date().toISOString();
+        set((s) => {
+          const sale = s.sales.find((x) => x.id === id);
+          if (!sale) return s;
+          return {
+            sales: s.sales.map((x) =>
+              x.id === id ? { ...x, archivedAt: null } : x,
+            ),
+            salesAuditLogs: [
+              { id: uid("saud"), action: "SALE_RESTORED", entityId: id, entityLabel: sale.ref, user: DEMO_USER, createdAt: now },
+              ...s.salesAuditLogs,
+            ],
+          };
+        });
+      },
+
+      deleteSale: (id) => {
+        const now = new Date().toISOString();
+        set((s) => {
+          const sale = s.sales.find((x) => x.id === id);
+          if (!sale) return s;
+          return {
+            sales: s.sales.filter((x) => x.id !== id),
+            salesAuditLogs: [
+              { id: uid("saud"), action: "SALE_DELETED", entityId: id, entityLabel: sale.ref, user: DEMO_USER, createdAt: now },
+              ...s.salesAuditLogs,
+            ],
+          };
+        });
       },
 
       logSalesReport: (entry) => {
@@ -1359,7 +1453,24 @@ export const useBusinessStore = create<BusinessState>()(
 
       resetDemo: () => set(initial()),
     }),
-    { name: "solaris-business" },
+    {
+      name: "solaris-business",
+      version: 1,
+      migrate: (persisted, version) => {
+        const state = persisted as BusinessState;
+        // v0 persisted an empty sales list; backfill seeded demo sales so the
+        // Sales dashboard and charts render with data for existing visitors.
+        if (
+          version < 1 &&
+          state &&
+          Array.isArray(state.products) &&
+          (!state.sales || state.sales.length === 0)
+        ) {
+          state.sales = seedSales(state.products);
+        }
+        return state;
+      },
+    },
   ),
 );
 

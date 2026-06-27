@@ -8,6 +8,7 @@ import {
   Layers,
   Receipt,
   Trash2,
+  Archive,
   ArrowDownToLine,
   Search,
   Filter,
@@ -17,11 +18,11 @@ import {
   FileText,
   Tags,
   TrendingUp,
-  AlertCircle,
 } from "lucide-react";
 import { ModuleGate } from "@/components/dashboard/module-gate";
 import { StatCard } from "@/components/dashboard/ui";
-import { AreaChart, BarChart } from "@/components/dashboard/charts";
+import { ActivityHistoryPanel } from "@/components/dashboard/activity-history";
+import { AreaChart } from "@/components/dashboard/charts";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,7 @@ import {
   useBusinessStore,
   type Expense,
   type ExpenseDraft,
+  type ExpenseCategory,
 } from "@/lib/store/business-store";
 import {
   buildExpensesCsv,
@@ -98,7 +100,9 @@ function ExpensesModule() {
   const updateExpense = useBusinessStore((s) => s.updateExpense);
   const deleteExpense = useBusinessStore((s) => s.deleteExpense);
   const restoreExpense = useBusinessStore((s) => s.restoreExpense);
+  const purgeExpense = useBusinessStore((s) => s.purgeExpense);
   const addCategory = useBusinessStore((s) => s.addExpenseCategory);
+  const updateCategory = useBusinessStore((s) => s.updateExpenseCategory);
   const deleteCategory = useBusinessStore((s) => s.deleteExpenseCategory);
   const logReport = useBusinessStore((s) => s.logExpenseReport);
 
@@ -125,6 +129,7 @@ function ExpensesModule() {
 
   // Category mgr dialog
   const [catDialogOpen, setCatDialogOpen] = useState(false);
+  const [editingCat, setEditingCat] = useState<ExpenseCategory | null>(null);
   const [newCatName, setNewCatName] = useState("");
   const [newCatColor, setNewCatColor] = useState(PALETTE[0]);
 
@@ -227,15 +232,31 @@ function ExpensesModule() {
     setDialogOpen(false);
   }
 
-  function handleAddCategory() {
+  function openEditCat(cat: ExpenseCategory) {
+    setEditingCat(cat);
+    setNewCatName(cat.name);
+    setNewCatColor(cat.color ?? PALETTE[0]);
+  }
+
+  function resetCatForm() {
+    setEditingCat(null);
+    setNewCatName("");
+    setNewCatColor(PALETTE[Math.floor(Math.random() * PALETTE.length)]);
+  }
+
+  function handleSaveCat() {
     if (!newCatName.trim()) {
       toast.error("Enter a category name");
       return;
     }
-    const cat = addCategory({ name: newCatName.trim(), color: newCatColor });
-    toast.success(`Category "${cat.name}" created`);
-    setNewCatName("");
-    setNewCatColor(PALETTE[Math.floor(Math.random() * PALETTE.length)]);
+    if (editingCat) {
+      updateCategory(editingCat.id, { name: newCatName.trim(), color: newCatColor });
+      toast.success("Category updated");
+    } else {
+      const cat = addCategory({ name: newCatName.trim(), color: newCatColor });
+      toast.success(`Category "${cat.name}" created`);
+    }
+    resetCatForm();
   }
 
   function handleDeleteCategory(id: string) {
@@ -302,7 +323,7 @@ function ExpensesModule() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-6xl font-display">
       {/* Header */}
       <div className="mb-8 flex flex-col gap-4">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -318,7 +339,10 @@ function ExpensesModule() {
               See where your money is going — {RANGE_OPTIONS.find((o) => o.value === preset)?.label.toLowerCase()}.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={() => setCatDialogOpen(true)} variant="outline">
+              <Tags className="size-4" /> Manage Categories
+            </Button>
             <Button onClick={openAddDialog} variant="accent">
               <Plus className="size-4" /> Add expense
             </Button>
@@ -390,13 +414,12 @@ function ExpensesModule() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
-          <TabsTrigger value="categories">Categories</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
 
         {/* ── OVERVIEW ───────────────────────────────────────────── */}
         <TabsContent value="overview" className="mt-6 flex flex-col gap-6">
-          <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
             <Card>
               <CardHead
                 title="Spending trend"
@@ -409,10 +432,18 @@ function ExpensesModule() {
               <BreakdownList rows={breakdown} />
             </Card>
           </div>
-          <Card>
-            <CardHead title="Recent activity" subtitle="Last 6 actions across this workspace" />
-            <RecentActivity logs={expenseAuditLogs} categoryById={categoryById} />
-          </Card>
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <ActivityHistoryPanel
+              title="Expenses activity"
+              entries={expenseAuditLogs.map((l) => ({
+                id: l.id,
+                action: l.action,
+                label: l.entityLabel,
+                user: l.user,
+                createdAt: l.createdAt,
+              }))}
+            />
+          </div>
         </TabsContent>
 
         {/* ── HISTORY ────────────────────────────────────────────── */}
@@ -445,7 +476,7 @@ function ExpensesModule() {
               onEdit={openEditDialog}
               onDelete={(id) => {
                 deleteExpense(id);
-                toast.success("Expense removed");
+                toast.success("Expense archived");
               }}
             />
           </Card>
@@ -456,84 +487,11 @@ function ExpensesModule() {
               restoreExpense(id);
               toast.success("Expense restored");
             }}
+            onPurge={(id) => {
+              purgeExpense(id);
+              toast.success("Expense deleted");
+            }}
           />
-        </TabsContent>
-
-        {/* ── CATEGORIES ─────────────────────────────────────────── */}
-        <TabsContent value="categories" className="mt-6 flex flex-col gap-6">
-          <Card>
-            <CardHead
-              title="Manage categories"
-              subtitle="Defaults are seeded; you can add your own custom categories and delete any not in use."
-            />
-
-            {/* Inline add row */}
-            <div className="mb-5 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-border bg-card/50 p-3">
-              <Tags className="size-4 text-muted-foreground" />
-              <Input
-                placeholder="New category name (e.g. Software)"
-                value={newCatName}
-                onChange={(e) => setNewCatName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleAddCategory(); }}
-                className="h-9 max-w-xs text-sm"
-              />
-              <div className="flex items-center gap-1.5">
-                {PALETTE.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setNewCatColor(c)}
-                    className={cn(
-                      "size-5 rounded-full border-2 transition-all",
-                      newCatColor === c ? "border-foreground scale-110" : "border-transparent",
-                    )}
-                    style={{ backgroundColor: c }}
-                    aria-label={`Pick color ${c}`}
-                  />
-                ))}
-              </div>
-              <Button onClick={handleAddCategory} variant="accent" size="sm">
-                <Plus className="size-4" /> Add category
-              </Button>
-            </div>
-
-            {/* Category list */}
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {expenseCategories.map((cat) => {
-                const inUse = expenses.filter(
-                  (e) => !e.deletedAt && e.categoryId === cat.id,
-                ).length;
-                return (
-                  <div key={cat.id} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="size-3 rounded-full shrink-0" style={{ backgroundColor: cat.color ?? "#9ca3af" }} />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{cat.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {inUse} expense{inUse === 1 ? "" : "s"}
-                          {cat.isDefault && " · default"}
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => handleDeleteCategory(cat.id)}
-                      title={inUse > 0 ? "Reassign expenses first" : "Delete category"}
-                    >
-                      <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-
-            {expenseCategories.length === 0 && (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                No categories yet — add one above to get started.
-              </p>
-            )}
-          </Card>
         </TabsContent>
 
         {/* ── REPORTS ────────────────────────────────────────────── */}
@@ -580,7 +538,7 @@ function ExpensesModule() {
               <Input
                 value={draft.title}
                 onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-                placeholder="Electricity bill"
+                placeholder="e.g. Electricity bill"
                 autoFocus
               />
             </div>
@@ -593,6 +551,7 @@ function ExpensesModule() {
                   step="0.01"
                   value={draft.amount || ""}
                   onChange={(e) => setDraft({ ...draft, amount: Number(e.target.value) || 0 })}
+                  placeholder="e.g. 2,500"
                 />
               </div>
               <div className="grid gap-1.5">
@@ -625,7 +584,7 @@ function ExpensesModule() {
                 <Input
                   value={draft.vendor ?? ""}
                   onChange={(e) => setDraft({ ...draft, vendor: e.target.value })}
-                  placeholder="Meralco"
+                  placeholder="e.g. Meralco"
                 />
               </div>
             </div>
@@ -635,7 +594,7 @@ function ExpensesModule() {
                 rows={2}
                 value={draft.description ?? ""}
                 onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-                placeholder="What this expense was for"
+                placeholder="e.g. Monthly office electricity"
                 className="flex w-full rounded-md border border-input bg-background/60 px-3 py-2 text-sm shadow-sm transition-all placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
@@ -645,7 +604,7 @@ function ExpensesModule() {
                 rows={2}
                 value={draft.notes ?? ""}
                 onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
-                placeholder="Internal notes (optional)"
+                placeholder="e.g. Paid via GCash · ref #12345"
                 className="flex w-full rounded-md border border-input bg-background/60 px-3 py-2 text-sm shadow-sm transition-all placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
@@ -659,12 +618,97 @@ function ExpensesModule() {
         </DialogContent>
       </Dialog>
 
-      {/* Category manager dialog — kept for future use */}
-      <Dialog open={catDialogOpen} onOpenChange={setCatDialogOpen}>
-        <DialogContent>
+      {/* Manage categories dialog */}
+      <Dialog
+        open={catDialogOpen}
+        onOpenChange={(o) => {
+          setCatDialogOpen(o);
+          if (!o) resetCatForm();
+        }}
+      >
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Manage categories</DialogTitle>
+            <DialogDescription>
+              Defaults are seeded; add your own, edit, or delete any not in use.
+            </DialogDescription>
           </DialogHeader>
+
+          {/* Add / edit form */}
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-border bg-card/50 p-3">
+            <Tags className="size-4 text-muted-foreground" />
+            <Input
+              placeholder="e.g. Software"
+              value={newCatName}
+              onChange={(e) => setNewCatName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSaveCat(); }}
+              className="h-9 max-w-xs text-sm"
+            />
+            <div className="flex items-center gap-1.5">
+              {PALETTE.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setNewCatColor(c)}
+                  className={cn(
+                    "size-5 rounded-full border-2 transition-all",
+                    newCatColor === c ? "border-foreground scale-110" : "border-transparent",
+                  )}
+                  style={{ backgroundColor: c }}
+                  aria-label={`Pick color ${c}`}
+                />
+              ))}
+            </div>
+            <Button onClick={handleSaveCat} variant="accent" size="sm">
+              <Plus className="size-4" /> {editingCat ? "Update" : "Add category"}
+            </Button>
+            {editingCat && (
+              <Button onClick={resetCatForm} variant="ghost" size="sm">
+                Cancel
+              </Button>
+            )}
+          </div>
+
+          {/* Category list */}
+          <div className="grid max-h-72 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+            {expenseCategories.map((cat) => {
+              const inUse = expenses.filter(
+                (e) => !e.deletedAt && e.categoryId === cat.id,
+              ).length;
+              return (
+                <div key={cat.id} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: cat.color ?? "#9ca3af" }} />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{cat.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {inUse} expense{inUse === 1 ? "" : "s"}
+                        {cat.isDefault && " · default"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon-sm" onClick={() => openEditCat(cat)} title="Edit">
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => handleDeleteCategory(cat.id)}
+                      title={inUse > 0 ? "Reassign expenses first" : "Delete category"}
+                    >
+                      <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {expenseCategories.length === 0 && (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              No categories yet — add one above.
+            </p>
+          )}
         </DialogContent>
       </Dialog>
     </div>
@@ -815,8 +859,8 @@ function ExpenseTable({
                     <Button variant="ghost" size="icon-sm" onClick={() => onEdit(e)} title="Edit">
                       <Pencil className="size-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon-sm" onClick={() => onDelete(e.id)} title="Delete">
-                      <Trash2 className="size-3.5 text-muted-foreground hover:text-destructive" />
+                    <Button variant="ghost" size="icon-sm" onClick={() => onDelete(e.id)} title="Archive">
+                      <Archive className="size-3.5 text-muted-foreground hover:text-foreground" />
                     </Button>
                   </div>
                 </td>
@@ -833,18 +877,20 @@ function DeletedSection({
   expenses,
   categoryById,
   onRestore,
+  onPurge,
 }: {
   expenses: Expense[];
   categoryById: Map<string, { name: string; color?: string }>;
   onRestore: (id: string) => void;
+  onPurge: (id: string) => void;
 }) {
   const deleted = expenses.filter((e) => e.deletedAt).slice(0, 10);
   if (deleted.length === 0) return null;
   return (
     <Card>
       <CardHead
-        title="Recently deleted"
-        subtitle={`${deleted.length} soft-deleted — kept for audit trail`}
+        title="Archived"
+        subtitle={`${deleted.length} archived — restore, or delete permanently`}
       />
       <div className="flex flex-col gap-2">
         {deleted.map((e) => {
@@ -862,85 +908,31 @@ function DeletedSection({
                   />
                 )}
                 <div className="min-w-0">
-                  <p className="truncate font-medium line-through opacity-70">{e.title}</p>
+                  <p className="truncate font-medium opacity-80">{e.title}</p>
                   <p className="text-xs text-muted-foreground">
-                    {formatDate(e.date)} · {formatCurrency(e.amount)} · deleted {relativeTime(e.deletedAt!)}
+                    {formatDate(e.date)} · {formatCurrency(e.amount)} · archived {relativeTime(e.deletedAt!)}
                   </p>
                 </div>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => onRestore(e.id)}>
-                <RotateCcw className="size-3.5" /> Restore
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" onClick={() => onRestore(e.id)}>
+                  <RotateCcw className="size-3.5" /> Restore
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => onPurge(e.id)}
+                  title="Delete permanently"
+                >
+                  <Trash2 className="size-3.5 text-muted-foreground hover:text-destructive" />
+                </Button>
+              </div>
             </div>
           );
         })}
       </div>
     </Card>
   );
-}
-
-function RecentActivity({
-  logs,
-  categoryById,
-}: {
-  logs: ReturnType<typeof useBusinessStore.getState>["expenseAuditLogs"];
-  categoryById: Map<string, { name: string; color?: string }>;
-}) {
-  const recent = logs.slice(0, 8);
-  if (recent.length === 0) {
-    return (
-      <p className="py-6 text-center text-sm text-muted-foreground">
-        No activity yet — add an expense to get started.
-      </p>
-    );
-  }
-  const iconFor = (a: string) => {
-    if (a === "EXPENSE_CREATED") return <Plus className="size-3.5" />;
-    if (a === "EXPENSE_UPDATED") return <Pencil className="size-3.5" />;
-    if (a === "EXPENSE_DELETED") return <Trash2 className="size-3.5" />;
-    if (a === "EXPENSE_RESTORED") return <RotateCcw className="size-3.5" />;
-    if (a.startsWith("EXPENSE_CATEGORY")) return <Tags className="size-3.5" />;
-    return <AlertCircle className="size-3.5" />;
-  };
-  return (
-    <div className="flex flex-col">
-      {recent.map((l) => (
-        <div
-          key={l.id}
-          className="flex items-center justify-between gap-3 border-b border-border/60 py-3 text-sm last:border-0"
-        >
-          <div className="flex items-center gap-3">
-            <span className="flex size-7 items-center justify-center rounded-full bg-secondary text-muted-foreground">
-              {iconFor(l.action)}
-            </span>
-            <div>
-              <p className="text-sm">
-                <span className="font-medium">{actionLabel(l.action)}</span>
-                {" · "}
-                <span className="text-muted-foreground">{l.entityLabel}</span>
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {l.user} · {relativeTime(l.createdAt)}
-              </p>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function actionLabel(action: string): string {
-  switch (action) {
-    case "EXPENSE_CREATED": return "Expense added";
-    case "EXPENSE_UPDATED": return "Expense updated";
-    case "EXPENSE_DELETED": return "Expense deleted";
-    case "EXPENSE_RESTORED": return "Expense restored";
-    case "EXPENSE_CATEGORY_CREATED": return "Category created";
-    case "EXPENSE_CATEGORY_UPDATED": return "Category updated";
-    case "EXPENSE_CATEGORY_DELETED": return "Category deleted";
-    default: return action;
-  }
 }
 
 function ReportAudit({

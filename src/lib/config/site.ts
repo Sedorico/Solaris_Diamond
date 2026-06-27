@@ -14,7 +14,7 @@ export const siteConfig = {
 export const mainNav = [
   { title: "Services", href: "/services" },
   { title: "Bundles", href: "/bundles" },
-  { title: "Pricing", href: "/pricing" },
+  { title: "Payment", href: "/payment" },
   { title: "About", href: "/about" },
   { title: "Contact", href: "/contact" },
 ] as const;
@@ -25,7 +25,7 @@ export const footerNav = [
     links: [
       { title: "Services", href: "/services" },
       { title: "Bundles", href: "/bundles" },
-      { title: "Pricing", href: "/pricing" },
+      { title: "Payment", href: "/payment" },
       { title: "Changelog", href: "/#" },
     ],
   },

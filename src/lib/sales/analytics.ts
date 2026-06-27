@@ -15,7 +15,7 @@ import type { Sale, SaleChannel } from "@/lib/store/business-store";
 // Types — match the server service
 // ---------------------------------------------------------------------------
 
-export type RangePreset = "today" | "7d" | "30d" | "90d" | "ytd" | "custom";
+export type RangePreset = "today" | "month" | "7d" | "30d" | "90d" | "ytd" | "custom";
 
 export interface DateRange {
   from: Date;
@@ -102,6 +102,11 @@ export function resolveRange(preset: RangePreset, now = new Date()): DateRange {
   switch (preset) {
     case "today":
       return { preset, from: startOfDay(now), to };
+    case "month": {
+      // Current calendar month to date (e.g. June 1 → today).
+      const from = startOfDay(new Date(now.getFullYear(), now.getMonth(), 1));
+      return { preset, from, to };
+    }
     case "7d":
       return { preset, from: startOfDay(new Date(+now - 6 * 86400000)), to };
     case "30d":

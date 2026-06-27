@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import { ModuleGate } from "@/components/dashboard/module-gate";
 import { ModuleHeader, StatCard } from "@/components/dashboard/ui";
+import { ActivityHistoryPanel } from "@/components/dashboard/activity-history";
+import { CategoryManagerDialog } from "@/components/dashboard/category-manager-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -91,18 +93,13 @@ const emptyProductDraft = {
   description: "",
 };
 
-const emptyCategoryDraft = {
-  name: "",
-  description: "",
-  color: "#C98A3C",
-};
-
 function InventoryModule() {
   const store = useBusinessStore();
   const {
     products,
     inventoryCategories,
     transactions,
+    auditLogs,
     addProduct,
     updateProduct,
     archiveProduct,
@@ -119,15 +116,13 @@ function InventoryModule() {
 
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [statusTab, setStatusTab] = useState<"ACTIVE" | "ARCHIVED">("ACTIVE");
+  const [statusTab, setStatusTab] = useState<"ACTIVE" | "ARCHIVED" | "HISTORY">("ACTIVE");
 
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productDraft, setProductDraft] = useState(emptyProductDraft);
 
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<typeof emptyCategoryDraft & { id?: string } | null>(null);
-  const [categoryDraft, setCategoryDraft] = useState(emptyCategoryDraft);
 
   const [stockTarget, setStockTarget] = useState<{ product: Product; mode: "in" | "out" } | null>(null);
   const [stockQty, setStockQty] = useState("1");
@@ -258,33 +253,6 @@ function InventoryModule() {
     setStockTarget(null);
     setStockQty("1");
     setStockReason("");
-  }
-
-  function openCreateCategory() {
-    setEditingCategory(null);
-    setCategoryDraft(emptyCategoryDraft);
-    setCategoryDialogOpen(true);
-  }
-
-  function openEditCategory(c: Category) {
-    setEditingCategory({ id: c.id, name: c.name, description: c.description ?? "", color: c.color ?? "#C98A3C" });
-    setCategoryDraft({ name: c.name, description: c.description ?? "", color: c.color ?? "#C98A3C" });
-  }
-
-  function saveCategory() {
-    if (!categoryDraft.name.trim()) {
-      toast.error("Category name is required");
-      return;
-    }
-    if (editingCategory?.id) {
-      updateInventoryCategory(editingCategory.id, categoryDraft);
-      toast.success("Category updated");
-    } else {
-      addInventoryCategory(categoryDraft);
-      toast.success("Category added");
-    }
-    setEditingCategory(null);
-    setCategoryDraft(emptyCategoryDraft);
   }
 
   function handleDeleteCategory(id: string) {
@@ -445,7 +413,7 @@ function InventoryModule() {
     id ? inventoryCategories.find((c) => c.id === id)?.color ?? null : null;
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-6xl font-display">
       <ModuleHeader
         title="Inventory"
         description="Track products, stock movement and low-stock alerts."
@@ -453,10 +421,7 @@ function InventoryModule() {
         <Button variant="outline" onClick={handlePrintInventory}>
           <Printer className="size-4" /> Print Report
         </Button>
-        <Button variant="outline" onClick={() => setAllHistoryOpen(true)}>
-          <History className="size-4" /> All History
-        </Button>
-        <Button variant="outline" onClick={openCreateCategory}>
+        <Button variant="outline" onClick={() => setCategoryDialogOpen(true)}>
           <Tag className="size-4" /> Manage Categories
         </Button>
         <Button variant="accent" onClick={openCreate}>
@@ -486,12 +451,15 @@ function InventoryModule() {
       )}
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <Tabs value={statusTab} onValueChange={(v) => setStatusTab(v as "ACTIVE" | "ARCHIVED")}>
+        <Tabs value={statusTab} onValueChange={(v) => setStatusTab(v as "ACTIVE" | "ARCHIVED" | "HISTORY")}>
           <TabsList>
             <TabsTrigger value="ACTIVE">Active</TabsTrigger>
             <TabsTrigger value="ARCHIVED">Archived</TabsTrigger>
+            <TabsTrigger value="HISTORY">History</TabsTrigger>
           </TabsList>
         </Tabs>
+        {statusTab !== "HISTORY" && (
+        <>
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -512,9 +480,24 @@ function InventoryModule() {
             ))}
           </SelectContent>
         </Select>
+        </>
+        )}
       </div>
 
       <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-card">
+        {statusTab === "HISTORY" ? (
+          <ActivityHistoryPanel
+            title="Inventory activity"
+            entries={auditLogs.map((a) => ({
+              id: a.id,
+              action: a.action,
+              label: a.entityLabel,
+              user: a.user,
+              createdAt: a.createdAt,
+            }))}
+          />
+        ) : (
+        <>
         <div className="hidden grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-4 border-b border-border px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground md:grid">
           <span>Product</span>
           <span>Category</span>
@@ -542,6 +525,9 @@ function InventoryModule() {
               <div className="col-span-2 md:col-span-1">
                 <p className="font-medium">{p.name}</p>
                 <p className="font-mono text-xs text-muted-foreground">{p.sku || "—"}</p>
+                {p.description && (
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{p.description}</p>
+                )}
                 {p.status === "ARCHIVED" && (
                   <Badge variant="muted" className="mt-1 text-[10px]">Archived</Badge>
                 )}
@@ -624,20 +610,22 @@ function InventoryModule() {
                           <RotateCcw className="size-4" /> Restore
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setDeleteTarget(p)}
+                        >
+                          <Trash2 className="size-4" /> Delete
+                        </DropdownMenuItem>
                       </>
                     )}
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={() => setDeleteTarget(p)}
-                    >
-                      <Trash2 className="size-4" /> Delete
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
             </div>
           );
         })}
+        </>
+        )}
       </div>
 
       {/* All History Drawer */}
@@ -901,51 +889,23 @@ function InventoryModule() {
       </Dialog>
 
       {/* Category Manager Dialog */}
-      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Manage Categories</DialogTitle>
-            <DialogDescription>Add, edit or delete your inventory categories.</DialogDescription>
-          </DialogHeader>
-          <div className="flex max-h-56 flex-col gap-2 overflow-y-auto pr-1">
-            {inventoryCategories.length === 0 && <p className="py-4 text-center text-sm text-muted-foreground">No categories yet.</p>}
-            {inventoryCategories.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 rounded-xl border border-border px-4 py-2.5">
-                <span className="size-3 shrink-0 rounded-full" style={{ background: c.color ?? "#888" }} />
-                <span className="flex-1 text-sm font-medium">{c.name}</span>
-                <Button variant="ghost" size="icon-sm" onClick={() => openEditCategory(c)}><Pencil className="size-3.5" /></Button>
-                <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => handleDeleteCategory(c.id)}><Trash2 className="size-3.5" /></Button>
-              </div>
-            ))}
-          </div>
-          <div className="border-t border-border pt-4">
-            <p className="mb-3 text-sm font-medium">{editingCategory?.id ? "Edit category" : "New category"}</p>
-            <div className="grid gap-3">
-              <div className="grid grid-cols-[1fr_auto] items-end gap-2">
-                <div className="grid gap-1.5">
-                  <Label>Name</Label>
-                  <Input value={categoryDraft.name} onChange={(e) => setCategoryDraft({ ...categoryDraft, name: e.target.value })} placeholder="e.g. Beverages" />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label>Color</Label>
-                  <input type="color" value={categoryDraft.color} onChange={(e) => setCategoryDraft({ ...categoryDraft, color: e.target.value })} className="h-9 w-12 cursor-pointer rounded-lg border border-border bg-transparent p-1" />
-                </div>
-              </div>
-              <div className="grid gap-1.5">
-                <Label>Description <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
-                <Input value={categoryDraft.description} onChange={(e) => setCategoryDraft({ ...categoryDraft, description: e.target.value })} placeholder="Short description" />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            {editingCategory?.id && (
-              <Button variant="ghost" onClick={() => { setEditingCategory(null); setCategoryDraft(emptyCategoryDraft); }}>Cancel edit</Button>
-            )}
-            <Button variant="outline" onClick={() => setCategoryDialogOpen(false)}>Close</Button>
-            <Button variant="accent" onClick={saveCategory}>{editingCategory?.id ? "Update category" : "Add category"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CategoryManagerDialog
+        open={categoryDialogOpen}
+        onOpenChange={setCategoryDialogOpen}
+        categories={inventoryCategories}
+        onAdd={(name, color) => {
+          addInventoryCategory({ name, color });
+          toast.success("Category added");
+        }}
+        onUpdate={(id, name, color) => {
+          updateInventoryCategory(id, { name, color });
+          toast.success("Category updated");
+        }}
+        onDelete={handleDeleteCategory}
+        usageCount={(cat) => products.filter((p) => p.categoryId === cat.id).length}
+        usageNoun="product"
+        placeholder="e.g. Beverages"
+      />
     </div>
   );
 }
