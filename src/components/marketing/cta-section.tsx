@@ -380,10 +380,17 @@ function Conversation() {
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    // Instant (not smooth) — streaming updates fire this many times per second,
-    // and a smooth animation keeps restarting and never reaches the growing
-    // bottom. Jump straight to the latest so the convo always follows along.
-    el.scrollTop = el.scrollHeight;
+    // Jump straight to the latest (instant, not smooth — streaming fires many
+    // times a second and a smooth animation keeps restarting and never reaches
+    // the growing bottom). Do it now AND on the next frame: a synchronous read
+    // mid-stream (or during the panel's entrance animation) can grab a stale
+    // scrollHeight and stop short, so re-run once layout has settled.
+    const toBottom = () => {
+      el.scrollTop = el.scrollHeight;
+    };
+    toBottom();
+    const raf = requestAnimationFrame(toBottom);
+    return () => cancelAnimationFrame(raf);
   }, [messages, typing]);
 
   // Merge any not-yet-shown messages from a live support thread into the chat.
@@ -985,7 +992,11 @@ function SupportOverlay({ onClose }: { onClose: () => void }) {
               not fixed, height); on desktop it stays pinned to one screen. */}
           <div
             style={{ minHeight: vh }}
-            className="relative flex flex-col"
+            // Desktop: pin to exactly one screen (h-full of the vh-tall veil) so
+            // the flex chain is height-bounded and the transcript scrolls
+            // internally. Mobile keeps only minHeight: vh so the veil itself
+            // scrolls when content exceeds the viewport.
+            className="relative flex flex-col lg:h-full"
           >
             <span className="pointer-events-none absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
 
