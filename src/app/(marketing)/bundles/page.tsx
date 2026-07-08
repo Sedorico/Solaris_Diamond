@@ -25,6 +25,7 @@ export default function BundlesPage() {
       />
       <BundlesSection />
       <Faq />
+      <div className="h-24 sm:h-32" />
       <CtaSection />
       <div className="h-10" />
     </>

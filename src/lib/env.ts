@@ -24,6 +24,10 @@ export const env = {
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
 
   cronSecret: process.env.CRON_SECRET,
+
+  /// Secret used to sign employee attendance-portal session cookies. Falls back
+  /// to the Supabase service key so the portal still works if unset.
+  attendanceSessionSecret: process.env.ATTENDANCE_SESSION_SECRET,
 } as const;
 
 export const integrations = {

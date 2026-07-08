@@ -106,6 +106,9 @@ model Tenant {
   id           String   @id @default(cuid())
   name         String
   businessName String?
+  /// Public URL slug for the employee attendance portal (/attendance/<slug>).
+  /// Generated automatically from the business name; unique across all tenants.
+  slug         String?  @unique
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -114,6 +117,7 @@ model Tenant {
   payments              Payment[]
   invoices              Invoice[]
   notifications         Notification[]
+  supportThreads        SupportThread[]
   products              Product[]
   productCategories     ProductCategory[]
   inventoryTransactions InventoryTransaction[]
@@ -130,7 +134,13 @@ model Tenant {
   posTransactions       POSTransaction[]
   posSettings           POSSettings?
   posReports            POSReport[]
+  posReceipts           POSReceipt[]
+  posCart               POSCart?
   attendance            AttendanceLog[]
+  departments           Department[]
+  employees             Employee[]
+  attendanceRequests    AttendanceRequest[]
+  attendanceSettings    AttendanceSettings?
   loginEvents           LoginEvent[]
   devices               Device[]
 
@@ -156,6 +166,7 @@ model User {
   inventoryTransactions InventoryTransaction[]
   auditLogs             AuditLog[]
   notifications         Notification[]
+  supportThreads        SupportThread[]
 
   @@index([tenantId])
   @@index([status])
@@ -252,6 +263,51 @@ model Notification {
 
   @@index([userId, read, createdAt])
   @@index([tenantId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Live support chat — user ↔ admin concierge hand-off
+// ---------------------------------------------------------------------------
+
+enum SupportThreadStatus {
+  OPEN // user is waiting / chatting; shows in the admin inbox
+  CLOSED
+}
+
+enum SupportSender {
+  USER
+  ADMIN
+}
+
+model SupportThread {
+  id        String              @id @default(cuid())
+  tenantId  String
+  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    SupportThreadStatus @default(OPEN)
+  subject   String?
+  adminUnread Int               @default(0)
+  userUnread  Int               @default(0)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  messages SupportMessage[]
+
+  @@index([status, updatedAt])
+  @@index([tenantId])
+  @@index([userId, status])
+}
+
+model SupportMessage {
+  id        String        @id @default(cuid())
+  threadId  String
+  thread    SupportThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender    SupportSender
+  body      String
+  createdAt DateTime      @default(now())
+
+  @@index([threadId, createdAt])
 }
 
 // ---------------------------------------------------------------------------
@@ -685,24 +741,34 @@ model POSCategory {
 }
 
 model POSTransaction {
-  id          String               @id @default(cuid())
-  tenantId    String
-  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  ref         String
-  totalCents  Int
-  method      String
-  status      POSTransactionStatus @default(COMPLETED)
-  customer    String?
-  notes       String?
-  cashier     String?
-  completedAt DateTime             @default(now())
-  voidedAt    DateTime?
-  createdAt   DateTime             @default(now())
+  id            String               @id @default(cuid())
+  tenantId      String
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ref           String
+  subtotalCents Int                  @default(0)
+  discountCents Int                  @default(0)
+  taxCents      Int                  @default(0)
+  totalCents    Int
+  /// Cash tendered / change — only set for cash payments.
+  cashCents     Int?
+  changeCents   Int?
+  method        String
+  status        POSTransactionStatus @default(COMPLETED)
+  customer      String?
+  notes         String?
+  cashier       String?
+  voidReason    String?
+  completedAt   DateTime             @default(now())
+  voidedAt      DateTime?
+  createdAt     DateTime             @default(now())
 
-  items       POSTransactionItem[]
+  items   POSTransactionItem[]
+  receipt POSReceipt?
 
+  @@unique([tenantId, ref])
   @@index([tenantId, completedAt])
   @@index([tenantId, status])
+  @@index([tenantId, totalCents])
 }
 
 model POSTransactionItem {
@@ -719,19 +785,73 @@ model POSTransactionItem {
   @@index([transactionId])
 }
 
+/// Immutable receipt document for a completed sale. `snapshot` freezes the
+/// full receipt content (lines, totals, branding) at the moment of checkout so
+/// later branding changes never rewrite historical receipts.
+model POSReceipt {
+  id            String         @id @default(cuid())
+  tenantId      String
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  transactionId String         @unique
+  transaction   POSTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  /// Per-tenant sequential receipt number, e.g. "OR-000042".
+  receiptNo     String
+  snapshot      Json
+  printCount    Int            @default(0)
+  lastPrintedAt DateTime?
+  createdAt     DateTime       @default(now())
+
+  @@unique([tenantId, receiptNo])
+  @@index([tenantId, createdAt])
+}
+
+/// The register's live cart, one row per tenant. Synced (debounced) from the
+/// register UI so an accidental refresh or crash never loses a sale in
+/// progress. Cleared on checkout.
+model POSCart {
+  id        String   @id @default(cuid())
+  tenantId  String   @unique
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items     Json     @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model POSSettings {
   id             String  @id @default(cuid())
   tenantId       String  @unique
   tenant         Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  companyName    String?
-  headerMessage  String?
-  footerMessage  String?
+
+  // Receipt branding
+  companyName     String?
+  address         String?
+  contactNumber   String?
+  logoUrl         String?
+  headerMessage   String?
+  footerMessage   String?
+  thankYouMessage String?
+
+  // Tax
+  vatEnabled     Boolean @default(true)
   vatRate        Float   @default(0.12)
   vatInclusive   Boolean @default(true)
+
+  // Admin PIN
   pinRequired    Boolean @default(false)
   pinHash        String?
-  primaryColor   String  @default("#000000")
-  accentColor    String  @default("#666666")
+
+  // POS appearance
+  primaryColor   String  @default("#C98A3C")
+  secondaryColor String  @default("#1A1A1A")
+  theme          String  @default("light")
+
+  // Register defaults
+  cashierName    String?
+  defaultMethod  String  @default("Cash")
+
+  /// Monotonic counter backing per-tenant receipt numbers.
+  receiptCounter Int     @default(0)
+
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
@@ -761,18 +881,161 @@ model POSReport {
 }
 
 // ---------------------------------------------------------------------------
-// Attendance
+// Attendance — multi-tenant employee time tracking
 // ---------------------------------------------------------------------------
 
-model AttendanceLog {
-  id       String    @id @default(cuid())
-  tenantId String
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  employee String
-  timeIn   DateTime
-  timeOut  DateTime?
+enum EmploymentStatus {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  PROBATIONARY
+}
 
-  @@index([tenantId, timeIn])
+enum EmployeeStatus {
+  ACTIVE
+  DISABLED
+}
+
+/// Which punch a request represents — clock in or clock out.
+enum AttendancePunchType {
+  TIME_IN
+  TIME_OUT
+}
+
+/// Owner's decision on a submitted punch.
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Final attendance status for a day, decided by the owner.
+enum AttendanceStatus {
+  PENDING
+  PRESENT
+  LATE
+  ABSENT
+  REJECTED
+}
+
+model Department {
+  id        String     @id @default(cuid())
+  tenantId  String
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime   @default(now())
+
+  employees Employee[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model Employee {
+  id               String           @id @default(cuid())
+  tenantId         String
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Owner-facing employee code (e.g. EMP-001). Unique within a business.
+  employeeCode     String
+  fullName         String
+  /// Login username, unique within the business (not globally).
+  username         String
+  passwordHash     String
+  departmentId     String?
+  department       Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  position         String?
+  employmentStatus EmploymentStatus @default(FULL_TIME)
+  dateHired        DateTime?
+  status           EmployeeStatus   @default(ACTIVE)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  logs     AttendanceLog[]
+  requests AttendanceRequest[]
+
+  @@unique([tenantId, username])
+  @@unique([tenantId, employeeCode])
+  @@index([tenantId, status])
+  @@index([departmentId])
+}
+
+/// One row per employee per calendar day — the source of truth for reports,
+/// logs and history. Punches update this record; the owner's approval sets the
+/// final `status`.
+model AttendanceLog {
+  id           String           @id @default(cuid())
+  tenantId     String
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId   String
+  employee     Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  /// Calendar day at 00:00 (local) the record belongs to.
+  workDate     DateTime
+  timeIn       DateTime?
+  timeOut      DateTime?
+  /// Worked hours, computed on time-out. Null until clocked out.
+  workingHours Float?
+  status       AttendanceStatus @default(PENDING)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  requests AttendanceRequest[]
+
+  @@unique([employeeId, workDate])
+  @@index([tenantId, workDate])
+  @@index([tenantId, status])
+}
+
+/// Each submitted punch enters the owner's approval queue as a request. The
+/// original submission time + device metadata are preserved verbatim even after
+/// the owner decides.
+model AttendanceRequest {
+  id             String              @id @default(cuid())
+  tenantId       String
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId     String
+  employee       Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  logId          String
+  log            AttendanceLog       @relation(fields: [logId], references: [id], onDelete: Cascade)
+  type           AttendancePunchType
+  /// Exact moment the employee tapped the button — never overwritten.
+  submittedAt    DateTime            @default(now())
+  browser        String?
+  device         String?
+  ipAddress      String?
+  approvalStatus ApprovalStatus      @default(PENDING)
+  /// True when the owner used "Mark Late" on a TIME_IN request.
+  markedLate     Boolean             @default(false)
+  reviewedAt     DateTime?
+  reviewedByUserId String?
+  createdAt      DateTime            @default(now())
+
+  @@index([tenantId, approvalStatus])
+  @@index([employeeId])
+  @@index([logId])
+}
+
+/// Per-business attendance policy. One row per tenant.
+model AttendanceSettings {
+  id                   String   @id @default(cuid())
+  tenantId             String   @unique
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Business name shown on the employee login portal. Falls back to the
+  /// tenant's business name when unset.
+  portalBusinessName   String?
+  /// Optional business logo for the portal (data URL or image URL). When null,
+  /// the logo slot on the login page is left blank.
+  logoUrl              String?
+  /// Expected clock-in time (HH:mm) used as the lateness reference.
+  workdayStart         String   @default("09:00")
+  /// Minutes past workdayStart before a punch is considered late.
+  lateThresholdMinutes Int      @default(15)
+  /// When enabled, long-pending requests are treated as Absent in reports.
+  autoAbsentPending    Boolean  @default(false)
+  /// Hours a request may stay pending before the policy counts it Absent.
+  autoAbsentAfterHours Int      @default(24)
+  timezone             String   @default("Asia/Manila")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 // ---------------------------------------------------------------------------

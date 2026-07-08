@@ -7,7 +7,7 @@ export function BundlesSection() {
   return (
     <section id="bundles" className="mx-auto mt-40 w-full max-w-6xl px-6">
       <EditorialHeading
-        roman="iv."
+        roman="v."
         label="The Bundles"
         title={
           <>

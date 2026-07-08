@@ -13,13 +13,17 @@ interface RevealProps {
   as?: "div" | "section" | "li" | "span";
 }
 
-/** Fade + lift on scroll into view. The signature section-reveal of the site. */
+/**
+ * Fade + lift on scroll into view. The signature section-reveal of the site.
+ * `once` defaults to false, so it replays every time the element scrolls into
+ * view — animating on the way down and again on the way back up.
+ */
 export function Reveal({
   children,
   className,
   delay = 0,
   y = 28,
-  once = true,
+  once = false,
 }: RevealProps) {
   return (
     <motion.div
@@ -52,7 +56,7 @@ const itemVariants: Variants = {
 export function Stagger({
   children,
   className,
-  once = true,
+  once = false,
 }: {
   children: ReactNode;
   className?: string;

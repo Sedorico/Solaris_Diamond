@@ -55,7 +55,7 @@ export function PaymentShowcase({ withHeading = true }: { withHeading?: boolean 
     >
       {withHeading && (
         <EditorialHeading
-          roman="v."
+          roman="vi."
           label="The Payment"
           title={
             <>

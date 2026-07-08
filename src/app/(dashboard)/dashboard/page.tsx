@@ -7,6 +7,8 @@ import { services } from "@/lib/data/services";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/auth/hooks";
+import { AiSummary } from "@/components/dashboard/ai-summary";
+import { WeeklyReport } from "@/components/dashboard/weekly-report";
 import { cn } from "@/lib/utils";
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -111,6 +113,12 @@ export default function DashboardOverview() {
           </div>
         </div>
       </motion.header>
+
+      {/* ─────────── AI Business Summary — auto-generated briefing ─────────── */}
+      <AiSummary />
+
+      {/* One-click printable weekly report, grounded in the live database */}
+      <WeeklyReport />
 
       {/* ─────────── The Modules — editorial tiles ─────────── */}
       <div className="mt-20 flex items-baseline justify-between">

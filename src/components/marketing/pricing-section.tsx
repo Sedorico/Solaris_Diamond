@@ -12,7 +12,7 @@ export function PricingSection({ withHeading = true }: { withHeading?: boolean }
     <section id="pricing" className="mx-auto mt-40 w-full max-w-6xl px-6">
       {withHeading && (
         <EditorialHeading
-          roman="v."
+          roman="vi."
           label="The Pricing"
           title={
             <>

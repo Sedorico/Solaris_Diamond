@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut, ShieldAlert } from "lucide-react";
@@ -47,6 +48,7 @@ const groups: NavGroup[] = [
   {
     label: "Operations",
     items: [
+      { title: "Support", href: "/admin/support" },
       { title: "Platform Health", href: "/admin/health" },
       { title: "Audit Logs", href: "/admin/logs" },
       { title: "Notifications", href: "/admin/notifications" },
@@ -65,6 +67,29 @@ export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useSession();
+  const [supportUnread, setSupportUnread] = useState(0);
+
+  // Poll the support inbox for an unread badge.
+  useEffect(() => {
+    let active = true;
+    const tick = async () => {
+      try {
+        const res = await fetch("/api/admin/support");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (active) setSupportUnread(data.unreadCount ?? 0);
+      } catch {
+        // ignore
+      }
+    };
+    const first = window.setTimeout(tick, 0);
+    const t = window.setInterval(tick, 15000);
+    return () => {
+      active = false;
+      window.clearTimeout(first);
+      window.clearInterval(t);
+    };
+  }, []);
 
   async function handleLogout() {
     const supabase = createSupabaseBrowserClient();
@@ -118,6 +143,11 @@ export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
                     >
                       {item.title}
                     </span>
+                    {item.href === "/admin/support" && supportUnread > 0 && (
+                      <span className="ml-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 font-mono text-[9px] font-semibold not-italic text-accent-foreground">
+                        {supportUnread}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

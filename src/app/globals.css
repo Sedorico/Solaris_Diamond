@@ -1,4 +1,14 @@
 @import "tailwindcss";
+
+/* Hide the scrollbar but keep scrolling. Unlayered on purpose so it always
+   wins over the global thin-scrollbar rule in @layer base. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
 @plugin "tailwindcss-animate";
 
 /* ============================================================ */
@@ -235,6 +245,20 @@
       0 18px 40px -16px oklch(0.19 0.012 60 / 0.28),
       0 48px 90px -32px oklch(0.19 0.012 60 / 0.46);
   }
+  /* Same premium glass sheen + depth as .glass-panel, but on a fully OPAQUE
+     body (no backdrop blur, no translucency) — for stacking cards where
+     anything behind must never bleed through the card in front. */
+  .glass-solid {
+    background:
+      linear-gradient(to bottom, color-mix(in oklch, white 16%, transparent) 0%, transparent 40%),
+      var(--card);
+    border: 1px solid color-mix(in oklch, white 16%, transparent);
+    box-shadow:
+      inset 0 1px 0 0 color-mix(in oklch, white 55%, transparent),
+      0 1px 2px oklch(0.19 0.012 60 / 0.1),
+      0 18px 40px -16px oklch(0.19 0.012 60 / 0.26),
+      0 48px 90px -32px oklch(0.19 0.012 60 / 0.4);
+  }
 
   /* Dashboard frosted/glossy glass — auto-applied to every card panel inside
      `.glass-scope`, so the gold backdrop shimmers through while text stays
@@ -434,6 +458,15 @@
 .pos-scope .pos-charge-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Wrong-PIN feedback on the POS admin keypad. */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
 }
 
 /* ============================================================ */

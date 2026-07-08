@@ -19,7 +19,7 @@ export function Faq() {
           <div className="md:sticky md:top-32">
             <div className="flex items-center gap-4 font-mono text-[10px] uppercase tracking-[0.4em] text-muted-foreground">
               <span className="font-display text-2xl font-normal italic text-accent">
-                vi.
+                vii.
               </span>
               <span>Questions</span>
             </div>

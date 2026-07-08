@@ -10,7 +10,7 @@ export function ServicesSection() {
   return (
     <section id="services" className="mx-auto mt-40 w-full max-w-6xl px-6">
       <EditorialHeading
-        roman="iii."
+        roman="iv."
         label="The Services"
         title={
           <>

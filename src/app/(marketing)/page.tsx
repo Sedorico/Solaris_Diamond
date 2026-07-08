@@ -1,5 +1,6 @@
 import { Hero } from "@/components/marketing/hero";
 import { LogoCloud } from "@/components/marketing/logo-cloud";
+import { AboutSection } from "@/components/marketing/about-section";
 import { ValueProps } from "@/components/marketing/value-props";
 import { ServicesSection } from "@/components/marketing/services-section";
 import { BundlesSection } from "@/components/marketing/bundles-section";
@@ -12,6 +13,7 @@ export default function HomePage() {
     <>
       <Hero />
       <LogoCloud />
+      <AboutSection />
       <ValueProps />
       <ServicesSection />
       <BundlesSection />

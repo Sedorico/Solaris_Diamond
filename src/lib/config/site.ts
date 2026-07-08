@@ -11,11 +11,14 @@ export const siteConfig = {
   currency: "PHP",
 } as const;
 
+// Ordered to mirror the homepage's section flow (About → Services → Bundles →
+// Payment → Contact). Services is pinned first in the navbar itself, so the
+// rest follow in page order after it.
 export const mainNav = [
   { title: "Services", href: "/services" },
+  { title: "About", href: "/about" },
   { title: "Bundles", href: "/bundles" },
   { title: "Payment", href: "/payment" },
-  { title: "About", href: "/about" },
   { title: "Contact", href: "/contact" },
 ] as const;
 

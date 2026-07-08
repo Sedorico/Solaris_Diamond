@@ -1,32 +1,140 @@
-import { Reveal, Stagger, StaggerItem } from "@/components/motion/reveal";
+"use client";
+
+import { useRef } from "react";
+import { motion, useScroll, useTransform } from "motion/react";
+import { Check, X } from "lucide-react";
+import { Reveal } from "@/components/motion/reveal";
 
 /**
- * The Principles — an editorial manifesto block that sits directly below the
- * hero. Hardcoded to match the hero's luxury language: a chapter mark, a
- * two-column display header, and three full-width principle rows with serif
- * index numerals, an animated accent rule on hover, and a quiet keyword tag.
+ * "Why Us" — a scroll-stacking comparison. Each card pins to the top and the
+ * next slides over it, piling into a deck as you scroll (and un-piling on the
+ * way back up). Every card is one promise: how Solaris does it (✓) versus the
+ * patched-together way most businesses settle for (✗).
  */
 
-const principles = [
+type Compare = {
+  good: { title: string; body: string };
+  bad: { title: string; body: string };
+};
+
+const comparisons: Compare[] = [
   {
-    no: "01",
-    tag: "Unified",
-    title: "One dashboard, every metric",
-    body: "Inventory, sales, expenses and people — unified in a single, beautifully calm workspace.",
+    good: {
+      title: "Skilled Professional",
+      body: "Gain access to top-tier talent with years of experience, ensuring flawless execution.",
+    },
+    bad: {
+      title: "Amateur Designer",
+      body: "Lack of experience may result in design inconsistencies and overlooked details.",
+    },
   },
   {
-    no: "02",
-    tag: "Modular",
-    title: "Subscribe to only what you need",
-    body: "Start with one module or take a bundle. Upgrade the instant you outgrow it — no migrations.",
+    good: {
+      title: "Future-Ready Designs",
+      body: "Crafting modern, scalable designs that grow with your business and stay ahead of trends.",
+    },
+    bad: {
+      title: "Outdated Concepts",
+      body: "Stale designs that don't reflect current trends or your evolving brand narrative.",
+    },
   },
   {
-    no: "03",
-    tag: "Instant",
-    title: "Live in minutes, not months",
-    body: "No onboarding calls. Pay, and your modules unlock automatically with zero manual approval.",
+    good: {
+      title: "Client-Centric Collaboration",
+      body: "Your vision leads the way — we work closely with you to bring ideas to life with precision and creativity.",
+    },
+    bad: {
+      title: "Detached Communication",
+      body: "Lack of collaboration and poor feedback loops can result in misaligned outcomes.",
+    },
+  },
+  {
+    good: {
+      title: "Timely Project Tracking",
+      body: "Stay informed with regular progress updates and timely deliverables.",
+    },
+    bad: {
+      title: "Unstructured & Unreliable Work",
+      body: "Inconsistent timelines and last-minute changes can compromise quality.",
+    },
   },
 ];
+
+function CompareCard({
+  item,
+  index,
+  isLast,
+}: {
+  item: Compare;
+  index: number;
+  isLast: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start start", "end start"],
+  });
+  // Stays crisp while it's the active card up front, then — as the next card
+  // climbs over it — shrinks and fades right out to 0, so the frosted glass
+  // never lets the cards behind bleed through.
+  const scale = useTransform(scrollYProgress, [0, 1], [1, 0.93]);
+  const opacity = useTransform(scrollYProgress, [0.25, 0.7], [1, 0]);
+
+  return (
+    <div
+      ref={ref}
+      className="sticky"
+      style={{ top: `calc(7rem + ${index * 1.5}rem)` }}
+    >
+      <motion.div
+        style={isLast ? undefined : { scale, opacity }}
+        className="group glass-solid relative origin-top overflow-hidden rounded-[2rem] p-8 sm:p-12"
+      >
+        {/* depth: oversized faint numeral */}
+        <span className="font-display pointer-events-none absolute -top-10 right-2 select-none text-[9rem] font-normal italic leading-none text-foreground/[0.045] sm:text-[12rem]">
+          {String(index + 1).padStart(2, "0")}
+        </span>
+        {/* soft gold glow */}
+        <span className="pointer-events-none absolute -left-20 top-1/2 size-72 -translate-y-1/2 rounded-full bg-accent/10 blur-3xl transition-colors duration-500 group-hover:bg-accent/20" />
+
+        <div className="relative flex flex-col">
+          {/* ── Status rail ── */}
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-2.5 font-mono text-[10px] uppercase tracking-[0.32em] text-accent">
+              <span className="flex size-7 items-center justify-center rounded-full bg-accent/12 ring-1 ring-accent/20">
+                <Check className="size-3.5" strokeWidth={2.6} />
+              </span>
+              With us
+            </span>
+            <span className="h-px flex-1 bg-border" />
+          </div>
+
+          {/* ── Hero ── */}
+          <h3 className="font-display mt-8 text-balance text-4xl font-normal leading-[1.04] tracking-[-0.015em] sm:text-[3.1rem]">
+            {item.good.title}
+          </h3>
+          <p className="mt-5 max-w-xl text-pretty leading-relaxed text-muted-foreground sm:text-lg">
+            {item.good.body}
+          </p>
+
+          {/* ── The alternative — a quiet footnote ── */}
+          <p className="mt-9 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+            <X
+              className="size-3.5 shrink-0 text-muted-foreground/40"
+              strokeWidth={2.6}
+            />
+            <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground/45">
+              Instead of
+            </span>
+            <span className="font-display text-base italic text-muted-foreground/55 line-through decoration-muted-foreground/25">
+              {item.bad.title}
+            </span>
+          </p>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
 
 export function ValueProps() {
   return (
@@ -35,51 +143,36 @@ export function ValueProps() {
       <Reveal>
         <div className="flex items-center gap-4 font-mono text-[10px] uppercase tracking-[0.4em] text-muted-foreground">
           <span className="font-display text-2xl font-normal italic text-accent">
-            ii.
+            iii.
           </span>
-          <span>The Principles</span>
+          <span>Why Us</span>
           <span className="h-px w-12 bg-accent/40" />
         </div>
 
         <div className="mt-8 grid gap-8 md:grid-cols-12">
           <h2 className="font-display text-balance text-4xl font-normal leading-[1.05] tracking-[-0.01em] sm:text-5xl md:col-span-7">
-            Three commitments,
+            The difference,
             <br />
-            held <span className="italic text-gradient-accent">quietly</span>.
+            made <span className="italic text-gradient-accent">plain</span>.
           </h2>
           <p className="max-w-sm self-end text-pretty leading-relaxed text-muted-foreground md:col-span-5">
-            Everything we build answers to the same few ideas. No noise, no
-            bloat — only what earns its place.
+            What working with the right partner looks like — and what settling
+            for less quietly costs you.
           </p>
         </div>
       </Reveal>
 
-      {/* ── Principle rows ── */}
-      <Stagger className="mt-16 border-t border-border">
-        {principles.map((p) => (
-          <StaggerItem key={p.no}>
-            <div className="group grid grid-cols-12 items-baseline gap-4 border-b border-border py-10 transition-colors duration-500 hover:bg-card/40 sm:py-12">
-              <span className="font-display col-span-12 text-3xl font-normal italic text-muted-foreground/45 transition-colors duration-500 group-hover:text-accent sm:col-span-2 sm:text-4xl">
-                {p.no}
-              </span>
-
-              <div className="col-span-12 sm:col-span-7 sm:col-start-3">
-                <h3 className="font-display text-2xl font-normal leading-snug sm:text-3xl">
-                  {p.title}
-                </h3>
-                <span className="mt-3 block h-px w-0 bg-accent transition-all duration-700 ease-out group-hover:w-16" />
-                <p className="mt-4 max-w-md text-pretty leading-relaxed text-muted-foreground">
-                  {p.body}
-                </p>
-              </div>
-
-              <span className="col-span-12 font-mono text-[10px] uppercase tracking-[0.32em] text-muted-foreground/70 sm:col-span-2 sm:col-start-11 sm:text-right">
-                {p.tag}
-              </span>
-            </div>
-          </StaggerItem>
+      {/* ── Stacking comparison cards ── */}
+      <div className="mt-16 flex flex-col gap-6 pb-[12vh]">
+        {comparisons.map((item, i) => (
+          <CompareCard
+            key={item.good.title}
+            item={item}
+            index={i}
+            isLast={i === comparisons.length - 1}
+          />
         ))}
-      </Stagger>
+      </div>
     </section>
   );
 }
